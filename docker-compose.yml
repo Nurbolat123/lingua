@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lingua
+      POSTGRES_PASSWORD: lingua
+      POSTGRES_DB: lingua
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lingua"]
+      interval: 5s
+      retries: 10
+
+  # Понадобится с этапа 3 (очереди: транскрипция, уведомления)
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  api:
+    build: ./apps/api
+    profiles: ["full"] # локально API удобнее запускать через npm run dev
+    env_file: ./apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://lingua:lingua@postgres:5432/lingua?schema=public
+    ports: ["3001:3001"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:

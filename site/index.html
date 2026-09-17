@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lingua — английский с точным уровнем, планом и куратором</title>
+  <meta name="description" content="Бесплатный тест по 5 навыкам, персональный план, короткие уроки и куратор. Прогресс видно ученику и родителям. Уровни A1–C1.">
+  <meta property="og:title" content="Lingua — узнайте свой настоящий уровень английского">
+  <meta property="og:description" content="Бесплатный тест по грамматике, лексике, чтению, аудированию и говорению.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#2B3FD6">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232B3FD6'/%3E%3Ctext x='32' y='44' font-family='Arial' font-weight='700' font-size='34' fill='white' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    /* ================================================================
+       НАСТРОЙКИ САЙТА — меняйте только этот блок
+       ================================================================ */
+    window.SITE_CONFIG = {
+      // URL веб-приложения Google Apps Script (см. ИНСТРУКЦИЯ.md, шаг 2)
+      FORM_ENDPOINT: "",
+
+      PRICE_SELF: "[ЦЕНА]",        // тариф «Самостоятельно», например "9 900 ₸"
+      PRICE_CURATOR: "[ЦЕНА]",     // тариф «С куратором»
+      TEST_MINUTES: "[N]",         // сколько минут длится тест
+      EMAIL: "hello@example.kz",
+      PHONE: "+7 700 000 00 00",
+      CURATORS_TEXT: "Преподаватели английского, которые проверяют задания и устные ответы, дают обратную связь и корректируют план обучения."
+    };
+  </script>
+
+  <style>
+    :root {
+      --paper: #F4F1EA;
+      --paper-2: #ECE7DC;
+      --card: #FFFDF8;
+      --ink: #16181D;
+      --ink-2: #464B53;
+      --muted: #555A63;
+      --line: #DDD7CA;
+      --blue: #2B3FD6;
+      --blue-dark: #1E2FA8;
+      --lime: #D9F36A;
+      --error: #B42318;
+      --display: 'Unbounded', 'Arial Black', system-ui, sans-serif;
+      --body: 'Onest', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --pad-x: 120px;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    [id] { scroll-margin-top: 84px; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); -webkit-font-smoothing: antialiased; }
+    img, svg { max-width: 100%; }
+    a { color: var(--blue); }
+    a:hover { color: var(--blue-dark); }
+    :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+    h1, h2, h3, p { margin: 0; }
+    .display { font-family: var(--display); font-weight: 700; letter-spacing: -0.015em; }
+
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    .section { padding: 112px var(--pad-x); }
+    .section--flush-top { padding-top: 0; }
+    .section--dark { background: var(--ink); color: var(--paper); }
+    .section--sand { background: var(--paper-2); }
+    .h2 { font-size: 42px; line-height: 1.15; }
+    .lead { font-size: 21px; line-height: 1.55; color: var(--ink-2); }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .stack { display: flex; flex-direction: column; }
+    .pill { align-self: flex-start; padding: 8px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; }
+    .pill--lime { background: var(--lime); color: var(--ink); }
+    .pill--ink { background: var(--ink); color: var(--paper); }
+    .card { padding: 36px; border-radius: 28px; background: var(--card); border: 1px solid var(--line); }
+    .card--raised { box-shadow: 0 30px 60px -30px rgba(22, 24, 29, 0.25); }
+    .kicker { font-size: 15px; font-weight: 600; color: var(--muted); }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; border-radius: 999px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; }
+    .btn--primary { padding: 20px 32px; background: var(--blue); color: #fff; font-size: 18px; }
+    .btn--primary:hover { background: var(--blue-dark); color: #fff; }
+    .btn--dark { padding: 14px 24px; background: var(--ink); color: var(--paper); font-size: 16px; }
+    .btn--dark:hover { background: #2A2D34; color: var(--paper); }
+    .btn--ghost { padding: 20px 8px; color: var(--ink); font-size: 18px; background: none; }
+    .btn--outline { padding: 16px; border: 1.5px solid var(--ink); color: var(--ink); background: none; font-size: 16px; }
+    .btn--outline:hover { background: var(--ink); color: var(--paper); }
+    .btn--lime { padding: 16px; background: var(--lime); color: var(--ink); font-size: 16px; font-weight: 700; }
+    .btn--lime:hover { background: #CBE55C; color: var(--ink); }
+
+    /* Header */
+    .header { position: sticky; top: 0; z-index: 10; background: rgba(244, 241, 234, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    .header__inner { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 16px var(--pad-x); }
+    .logo { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+    .logo__mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--blue); color: #fff; font-family: var(--display); font-weight: 700; font-size: 18px; }
+    .logo__name { font-family: var(--display); font-weight: 700; font-size: 20px; }
+    .nav { display: flex; gap: 36px; font-weight: 500; }
+    .nav a { color: var(--ink); text-decoration: none; }
+    .nav a:hover { color: var(--blue); }
+
+    /* Hero */
+    .hero { padding: 88px var(--pad-x) 112px; }
+    .hero__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 72px; align-items: center; }
+    .hero__copy { gap: 32px; }
+    .hero h1 { font-size: 58px; line-height: 1.08; }
+    .hero .lead { max-width: 520px; }
+    .hero__actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+
+    .profile { gap: 28px; }
+    .profile__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .profile__overall { font-family: var(--display); font-weight: 700; font-size: 44px; line-height: 1; color: var(--blue); }
+    .skills { display: flex; flex-direction: column; gap: 18px; }
+    .skill__row { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .bar { height: 10px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
+    .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--blue); }
+    .bar > span.is-weak { background: var(--ink); }
+    .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .tile { padding: 16px; border-radius: 16px; display: flex; flex-direction: column; gap: 4px; }
+    .tile small { font-size: 13px; font-weight: 600; }
+    .tile strong { font-size: 18px; }
+
+    /* Questions */
+    .questions { gap: 56px; }
+    .questions .h2 { max-width: 820px; }
+    .q-card { padding: 36px; border-radius: 24px; border: 1px solid #3A3D44; display: flex; flex-direction: column; gap: 16px; }
+    .q-card h3 { font-size: 26px; }
+    .q-card p { font-size: 17px; line-height: 1.6; color: #C9C5BC; }
+
+    /* Steps */
+    .how__head { display: flex; justify-content: space-between; align-items: flex-end; gap: 48px; margin-bottom: 56px; }
+    .how__head .h2 { max-width: 640px; }
+    .how__head p { font-size: 18px; line-height: 1.6; color: var(--muted); max-width: 420px; }
+    .steps { list-style: none; margin: 0; padding: 0; }
+    .step { padding: 32px; border-radius: 24px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; }
+    .step__num { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: var(--blue); color: #fff; font-family: var(--display); font-weight: 700; }
+    .step h3 { font-size: 22px; }
+    .step p { font-size: 16px; line-height: 1.6; color: var(--muted); }
+    .step--accent { background: var(--lime); border-color: #C4DC55; }
+    .step--accent .step__num { background: var(--ink); color: var(--lime); }
+    .step--accent p { color: #2E3316; }
+
+    /* Lesson + speaking */
+    .lesson { gap: 24px; padding: 44px; }
+    .lesson h3, .speaking h3 { font-size: 30px; line-height: 1.2; }
+    .lesson dl { margin: 0; }
+    .lesson__row { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--paper-2); font-size: 17px; }
+    .lesson__row:last-child { border-bottom: 0; }
+    .lesson__row dd { margin: 0; color: var(--muted); text-align: right; }
+    .speaking { padding: 44px; border-radius: 28px; background: var(--blue); color: #fff; display: flex; flex-direction: column; gap: 24px; }
+    .speaking .kicker { color: var(--lime); }
+    .prompt { padding: 20px 24px; border-radius: 18px; background: var(--blue-dark); display: flex; align-items: center; gap: 16px; font-size: 19px; font-weight: 600; }
+    .prompt__icon { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 999px; background: var(--lime); color: var(--ink); }
+    .feedback { display: flex; flex-direction: column; gap: 12px; }
+    .feedback > span { font-size: 15px; color: #C8CEFA; }
+    .feedback p { padding: 14px 18px; border-radius: 14px; background: #fff; color: var(--ink); font-size: 16px; line-height: 1.5; }
+
+    /* Parents */
+    .parents__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 72px; align-items: center; }
+    .parents__copy { gap: 28px; }
+    .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+    .checks li { display: flex; gap: 14px; align-items: flex-start; font-size: 18px; line-height: 1.5; }
+    .checks svg { flex-shrink: 0; margin-top: 2px; }
+    .report { gap: 22px; }
+    .report__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .report__line { display: flex; justify-content: space-between; font-size: 16px; color: var(--muted); }
+    .report__line strong { color: var(--ink); }
+    .scores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .score { padding: 16px; border-radius: 16px; background: var(--paper); display: flex; flex-direction: column; gap: 4px; }
+    .score span { font-size: 14px; color: var(--muted); }
+    .score strong { font-family: var(--display); font-size: 24px; }
+    .comment { padding: 18px 20px; border-radius: 16px; background: var(--ink); color: var(--paper); display: flex; flex-direction: column; gap: 6px; }
+    .comment small { font-size: 13px; color: var(--lime); font-weight: 600; }
+    .comment p { font-size: 16px; line-height: 1.5; }
+
+    /* Audience */
+    .audience { padding: 44px; border-radius: 28px; border: 1px solid var(--line); display: flex; flex-direction: column; gap: 18px; }
+    .audience h3 { font-size: 28px; }
+    .audience p { font-size: 18px; line-height: 1.6; color: var(--muted); }
+
+    /* Pricing */
+    .pricing__title { margin-bottom: 48px; }
+    .plan { display: flex; flex-direction: column; gap: 20px; }
+    .plan__name { font-size: 20px; font-weight: 700; }
+    .plan__price { font-family: var(--display); font-weight: 700; font-size: 34px; }
+    .plan__price small { font-family: var(--body); font-size: 16px; font-weight: 500; color: var(--muted); }
+    .plan ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 16px; line-height: 1.5; color: var(--ink-2); flex-grow: 1; }
+    .plan--featured { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .plan--featured ul { color: #DAD6CD; }
+    .plan--featured .plan__price small { color: #C9C5BC; }
+    .plan__top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .badge { padding: 6px 12px; border-radius: 999px; background: var(--lime); color: var(--ink); font-size: 13px; font-weight: 700; }
+
+    /* FAQ */
+    .faq { border-top: 1px solid var(--line); }
+    .faq__grid { display: grid; grid-template-columns: 1fr 2fr; gap: 48px; }
+    .faq details { border-bottom: 1px solid var(--line); }
+    .faq summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 26px 0; font-size: 20px; font-weight: 600; cursor: pointer; }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary svg { flex-shrink: 0; color: var(--blue); transition: transform .2s ease; }
+    .faq details[open] summary svg { transform: rotate(45deg); }
+    .faq details p { padding: 0 48px 26px 0; font-size: 17px; line-height: 1.65; color: var(--ink-2); }
+
+    /* Lead form */
+    .cta { max-width: 1200px; margin: 0 auto; padding: 72px; border-radius: 36px; background: var(--blue); color: #fff; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; align-items: center; }
+    .cta h2 { font-size: 44px; line-height: 1.12; }
+    .cta__copy { gap: 20px; }
+    .cta__copy p { font-size: 19px; line-height: 1.6; color: #DDE1FD; }
+    .form { padding: 36px; border-radius: 24px; background: var(--card); color: var(--ink); }
+    .form form { display: flex; flex-direction: column; gap: 20px; }
+    .field { display: flex; flex-direction: column; gap: 8px; border: 0; margin: 0; padding: 0; }
+    .field label, .field legend { font-size: 15px; font-weight: 600; padding: 0; }
+    .field input[type="text"] { height: 54px; padding: 0 18px; border-radius: 14px; border: 1.5px solid #CFC8B9; background: #fff; font: inherit; font-size: 17px; color: var(--ink); }
+    .field input[type="text"]:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px rgba(43, 63, 214, 0.25); }
+    .field input[aria-invalid="true"] { border-color: var(--error); }
+    .segmented { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+    .segmented input { position: absolute; opacity: 0; pointer-events: none; }
+    .segmented label { display: grid; place-items: center; height: 50px; border-radius: 14px; border: 1.5px solid #CFC8B9; background: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .segmented input:checked + label { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+    .segmented input:focus-visible + label { outline: 3px solid var(--blue); outline-offset: 2px; }
+    .consent { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: var(--muted); }
+    .consent input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--blue); flex-shrink: 0; }
+    .form__error { font-size: 15px; color: var(--error); font-weight: 600; min-height: 0; }
+    .form__error:empty { display: none; }
+    .btn--submit { height: 58px; background: var(--ink); color: var(--paper); font-size: 18px; }
+    .btn--submit:hover { background: #2A2D34; }
+    .btn--submit[disabled] { opacity: .6; cursor: progress; }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .success { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+    .success[hidden] { display: none; }
+    .success__icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 999px; background: var(--lime); }
+    .success strong { font-size: 24px; }
+    .success p { font-size: 17px; line-height: 1.55; color: var(--muted); }
+
+    .footer { padding: 48px var(--pad-x); border-top: 1px solid var(--line); }
+    .footer__inner { display: flex; justify-content: space-between; align-items: center; gap: 24px 32px; flex-wrap: wrap; font-size: 15px; color: var(--muted); }
+    .footer__links { display: flex; gap: 12px 28px; flex-wrap: wrap; }
+    .footer a { color: var(--muted); }
+
+    /* ── Планшет ── */
+    @media (max-width: 1100px) {
+      :root { --pad-x: 48px; }
+      .nav { display: none; }
+      .hero__grid, .parents__grid { gap: 48px; }
+      .hero h1 { font-size: 46px; }
+      .h2 { font-size: 36px; }
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .cta { padding: 48px; gap: 40px; }
+      .cta h2 { font-size: 36px; }
+    }
+    /* ── Телефон ── */
+    @media (max-width: 760px) {
+      :root { --pad-x: 20px; }
+      .header__inner { padding-top: 12px; padding-bottom: 12px; }
+      .header .btn--login { display: none; }
+      .logo__name { font-size: 18px; }
+      .btn--dark { padding: 12px 18px; font-size: 15px; }
+      .section { padding-top: 72px; padding-bottom: 72px; }
+      .section--flush-top { padding-top: 0; }
+      .hero { padding-top: 48px; padding-bottom: 72px; }
+      .hero__grid, .parents__grid, .grid-2, .grid-3, .faq__grid, .cta { grid-template-columns: minmax(0, 1fr); }
+      .hero h1 { font-size: 34px; }
+      .lead { font-size: 18px; }
+      .hero__actions .btn--primary { width: 100%; }
+      .h2 { font-size: 28px; }
+      .card, .lesson, .speaking, .audience { padding: 24px; border-radius: 22px; }
+      .profile__overall { font-size: 36px; }
+      .how__head { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 32px; }
+      .questions { gap: 32px; }
+      .q-card, .step { padding: 24px; }
+      .lesson h3, .speaking h3 { font-size: 24px; }
+      .lesson__row { flex-direction: column; gap: 2px; }
+      .lesson__row dd { text-align: left; }
+      .prompt { font-size: 17px; }
+      .scores { gap: 8px; }
+      .score { padding: 12px; }
+      .score strong { font-size: 20px; }
+      .faq__grid { gap: 16px; }
+      .faq summary { font-size: 18px; padding: 20px 0; }
+      .faq details p { padding-right: 0; }
+      .cta { padding: 28px 20px; border-radius: 28px; gap: 28px; }
+      .cta h2 { font-size: 28px; }
+      .form { padding: 22px; }
+      .footer__inner { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header__inner">
+    <a class="logo" href="#top" aria-label="Lingua, на главную">
+      <span class="logo__mark" aria-hidden="true">L</span>
+      <span class="logo__name">Lingua</span>
+    </a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="#how">Как это работает</a>
+      <a href="#parents">Родителям</a>
+      <a href="#pricing">Цены</a>
+      <a href="#faq">Вопросы</a>
+    </nav>
+    <a class="btn btn--dark" href="#start">Пройти тест</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap hero__grid">
+      <div class="stack hero__copy">
+        <span class="pill pill--lime">Английский для детей, подростков и взрослых, уровни A1–C1</span>
+        <h1 class="display">Узнайте свой настоящий уровень английского</h1>
+        <p class="lead">Тест по пяти навыкам, персональный план, короткие уроки и куратор, который проверяет задания. Прогресс видно ученику и родителям.</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#start">
+            Пройти бесплатный тест
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn--ghost" href="#how">Как это устроено</a>
+        </div>
+      </div>
+
+      <figure class="card card--raised stack profile" aria-label="Пример результата теста" style="margin:0">
+        <div class="profile__head">
+          <div class="stack" style="gap:4px">
+            <span class="kicker">Пример English Profile</span>
+            <span style="font-size:15px;color:var(--muted)">после вступительного теста</span>
+          </div>
+          <div class="stack" style="align-items:flex-end;gap:2px">
+            <span style="font-size:14px;color:var(--muted)">Overall</span>
+            <span class="profile__overall">B1+</span>
+          </div>
+        </div>
+        <div class="skills">
+          <div><div class="skill__row"><span>Grammar</span><span>B2</span></div><div class="bar"><span style="width:74%"></span></div></div>
+          <div><div class="skill__row"><span>Vocabulary</span><span>B1</span></div><div class="bar"><span style="width:58%"></span></div></div>
+          <div><div class="skill__row"><span>Reading</span><span>B2</span></div><div class="bar"><span style="width:76%"></span></div></div>
+          <div><div class="skill__row"><span>Listening</span><span>B1</span></div><div class="bar"><span style="width:55%"></span></div></div>
+          <div><div class="skill__row"><span>Speaking</span><span>A2+</span></div><div class="bar"><span class="is-weak" style="width:36%"></span></div></div>
+        </div>
+        <div class="tiles">
+          <div class="tile" style="background:var(--lime)"><small>Сильная сторона</small><strong>Reading</strong></div>
+          <div class="tile" style="background:var(--ink);color:var(--paper)"><small>Нужно подтянуть</small><strong>Speaking</strong></div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section section--dark">
+    <div class="wrap stack questions">
+      <h2 class="display h2">Не библиотека курсов. Платформа отвечает на три вопроса.</h2>
+      <div class="grid-3">
+        <div class="q-card"><h3>Where am I?</h3><p>Какой у меня реальный уровень? Отдельно по грамматике, лексике, чтению, аудированию и говорению.</p></div>
+        <div class="q-card"><h3>What should I learn next?</h3><p>Что изучать именно сейчас? План на каждый день строится вокруг ваших слабых навыков.</p></div>
+        <div class="q-card"><h3>Am I actually improving?</h3><p>Становится ли английский лучше? Динамика B1 → B1+ → B2 по каждому навыку.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="wrap">
+      <div class="how__head">
+        <h2 class="display h2">Полный цикл обучения под контролем</h2>
+        <p>После каждого круга план обновляется по вашим результатам.</p>
+      </div>
+      <ol class="steps grid-3">
+        <li class="step"><span class="step__num" aria-hidden="true">1</span><h3>Диагностика</h3><p>Тест по 5 навыкам, включая запись устного ответа.</p></li>
+        <li class="step"><span class="step__num" aria-hidden="true">2</span><h3>Персональный план</h3><p>Темы, грамматика, лексика и рекомендуемое время занятий в день.</p></li>
+        <li class="step"><span class="step__num" aria-hidden="true">3</span><h3>Короткие уроки</h3><p>Жизненные ситуации вместо сухих правил: учимся, практикуем, применяем.</p></li>
+        <li class="step"><span class="step__num" aria-hidden="true">4</span><h3>Самостоятельная работа</h3><p>Задания выполняются внутри платформы, поэтому видно, что работа сделана самостоятельно.</p></li>
+        <li class="step"><span class="step__num" aria-hidden="true">5</span><h3>Проверка куратором</h3><p>Куратор оценивает задания, пишет комментарии и корректирует план.</p></li>
+        <li class="step step--accent"><span class="step__num" aria-hidden="true">6</span><h3>Прогресс и новый план</h3><p>Профиль обновляется после уроков и тестов, родители получают отчёт.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section section--flush-top">
+    <div class="wrap grid-2">
+      <div class="card stack lesson">
+        <span class="kicker">Пример урока</span>
+        <h3 class="display">Work-Life Balance</h3>
+        <dl>
+          <div class="lesson__row"><dt>Vocabulary</dt><dd>sustainable, deadline, burnout</dd></div>
+          <div class="lesson__row"><dt>Grammar</dt><dd>Present Perfect Continuous</dd></div>
+          <div class="lesson__row"><dt>Listening</dt><dd>интервью о рабочем дне</dd></div>
+          <div class="lesson__row"><dt>Упражнения</dt><dd>интерактивные задания</dd></div>
+          <div class="lesson__row"><dt>Speaking</dt><dd>устный ответ голосом</dd></div>
+          <div class="lesson__row"><dt>Мини-тест и домашнее задание</dt><dd>закрепление</dd></div>
+        </dl>
+      </div>
+      <div class="speaking">
+        <span class="kicker">Speaking</span>
+        <h3 class="display">Говорите, а не только заполняйте пропуски</h3>
+        <div class="prompt">
+          <span class="prompt__icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></span>
+          <span lang="en">“What makes a person successful?”</span>
+        </div>
+        <div class="feedback">
+          <span>Обратная связь по ответу</span>
+          <p lang="en">You used good B2 vocabulary.</p>
+          <p lang="en">You repeated “very” several times. Try: highly / extremely / particularly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--sand" id="parents">
+    <div class="wrap parents__grid">
+      <div class="stack parents__copy">
+        <span class="pill pill--ink">Родительский кабинет</span>
+        <h2 class="display h2">Вы видите, как учится ребёнок, а не только оплату</h2>
+        <ul class="checks">
+          <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2B3FD6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>Посещаемость, время занятий и выполненные уроки</li>
+          <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2B3FD6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>Результаты и прогресс по пяти навыкам</li>
+          <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2B3FD6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>Комментарии куратора и домашние задания</li>
+          <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2B3FD6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>Уведомления о пропусках, невыполненных заданиях и низких результатах</li>
+        </ul>
+      </div>
+      <figure class="card card--raised stack report" aria-label="Пример отчёта для родителя" style="margin:0">
+        <div class="report__head"><strong style="font-size:18px">Отчёт об уроке</strong><span class="pill pill--lime">Урок завершён</span></div>
+        <div class="report__line"><span>Время занятия</span><strong>35 мин</strong></div>
+        <div class="scores">
+          <div class="score"><span>Grammar</span><strong>8/10</strong></div>
+          <div class="score"><span>Vocabulary</span><strong>7/10</strong></div>
+          <div class="score"><span>Listening</span><strong>9/10</strong></div>
+        </div>
+        <div class="report__line"><span>Домашнее задание</span><strong>выполнено</strong></div>
+        <div class="comment"><small>Комментарий куратора</small><p>Хороший прогресс в лексике. Рекомендуем больше speaking-практики.</p></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap grid-2">
+      <div class="audience"><h3 class="display">Детям и подросткам</h3><p>Короткие интерактивные уроки, куратор и отчёты для родителей. Аккаунт ученика младше 18 лет подключается к родительскому кабинету.</p></div>
+      <div class="audience"><h3 class="display">Взрослым</h3><p>Английский для работы, переезда или экзамена: уровни от A1 до C1 и план под вашу цель.</p></div>
+    </div>
+  </section>
+
+  <section class="section section--flush-top" id="pricing">
+    <div class="wrap">
+      <h2 class="display h2 pricing__title">Начните с бесплатного теста</h2>
+      <div class="grid-3">
+        <div class="card plan">
+          <span class="plan__name">Диагностика</span>
+          <span class="plan__price">Бесплатно</span>
+          <ul><li>Тест по 5 навыкам</li><li>English Profile с разбором</li><li>Рекомендации, с чего начать</li></ul>
+          <a class="btn btn--outline" href="#start">Пройти тест</a>
+        </div>
+        <div class="card plan">
+          <span class="plan__name">Самостоятельно</span>
+          <span class="plan__price"><span data-config="PRICE_SELF">[ЦЕНА]</span> <small>/ мес</small></span>
+          <ul><li>Персональный план на каждый день</li><li>Уроки, упражнения и тесты</li><li>Словарь и прогресс по навыкам</li></ul>
+          <a class="btn btn--outline" href="#start" data-audience="adult">Оставить заявку</a>
+        </div>
+        <div class="card plan plan--featured">
+          <div class="plan__top"><span class="plan__name">С куратором</span><span class="badge">Рекомендуем</span></div>
+          <span class="plan__price"><span data-config="PRICE_CURATOR">[ЦЕНА]</span> <small>/ мес</small></span>
+          <ul><li>Всё из тарифа «Самостоятельно»</li><li>Проверка заданий и устных ответов куратором</li><li>Комментарии и корректировка плана</li><li>Отчёты и уведомления родителям</li></ul>
+          <a class="btn btn--lime" href="#start">Оставить заявку</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section faq" id="faq">
+    <div class="wrap faq__grid">
+      <h2 class="display h2">Частые вопросы</h2>
+      <div>
+        <details open>
+          <summary>Сколько длится тест?<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <p>Около <span data-config="TEST_MINUTES">[N]</span> минут. Тест проверяет грамматику, лексику, чтение, аудирование и говорение, а сложность вопросов подстраивается под ваши ответы.</p>
+        </details>
+        <details>
+          <summary>Используются ли камера и микрофон?<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <p>Микрофон нужен для устных заданий. Камера включается только в отдельных самостоятельных заданиях. И то и другое работает только с вашего согласия, а за учеников младше 18 лет согласие даёт родитель. Согласие можно отозвать в любой момент.</p>
+        </details>
+        <details>
+          <summary>Кто такие кураторы?<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <p data-config="CURATORS_TEXT">Преподаватели английского, которые проверяют задания и устные ответы, дают обратную связь и корректируют план обучения.</p>
+        </details>
+        <details>
+          <summary>Что видит родитель?<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <p>Посещаемость, время занятий, выполненные уроки и домашние задания, результаты по пяти навыкам и комментарии куратора. Если урок пропущен или задание не выполнено, придёт уведомление.</p>
+        </details>
+        <details>
+          <summary>Подходит ли платформа взрослым?<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <p>Да. Уровни от A1 до C1, а план строится под вашу цель: работа, переезд, экзамен или общение.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--flush-top" id="start">
+    <div class="cta">
+      <div class="stack cta__copy">
+        <h2 class="display">Узнайте свой уровень бесплатно</h2>
+        <p>Оставьте контакты, и мы пришлём ссылку на тест. После него вы получите English Profile и рекомендации.</p>
+      </div>
+
+      <div class="form">
+        <form id="lead-form" novalidate>
+          <fieldset class="field">
+            <legend>Кто будет учиться</legend>
+            <div class="segmented">
+              <input type="radio" id="aud-child" name="audience" value="child" checked>
+              <label for="aud-child">Ребёнок</label>
+              <input type="radio" id="aud-adult" name="audience" value="adult">
+              <label for="aud-adult">Я сам(а)</label>
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="lead-name">Имя</label>
+            <input id="lead-name" name="name" type="text" autocomplete="name" maxlength="100" placeholder="Как к вам обращаться" required>
+          </div>
+          <div class="field">
+            <label for="lead-contact">Телефон или email</label>
+            <input id="lead-contact" name="contact" type="text" autocomplete="tel" inputmode="text" maxlength="100" placeholder="+7 700 000 00 00" required>
+          </div>
+          <div class="hp" aria-hidden="true">
+            <label for="lead-website">Не заполняйте это поле</label>
+            <input id="lead-website" name="website" type="text" tabindex="-1" autocomplete="off">
+          </div>
+          <label class="consent">
+            <input type="checkbox" name="consent" value="yes" required>
+            <span>Согласен(на) на обработку персональных данных в соответствии с <a href="privacy.html" target="_blank" rel="noopener">политикой конфиденциальности</a></span>
+          </label>
+          <div class="form__error" id="form-error" role="alert"></div>
+          <button type="submit" class="btn btn--submit" id="form-submit">Получить ссылку на тест</button>
+        </form>
+
+        <div class="success" id="form-success" hidden tabindex="-1">
+          <span class="success__icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16181D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></span>
+          <strong>Заявка отправлена</strong>
+          <p>Мы свяжемся с вами и пришлём ссылку на тест. Если вопрос срочный, напишите на <a data-config-link="EMAIL" href="#">почту</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="footer__inner">
+    <span class="logo__name">Lingua</span>
+    <div class="footer__links">
+      <a href="privacy.html">Политика конфиденциальности</a>
+      <a data-config-link="EMAIL" href="#">email</a>
+      <a data-config-link="PHONE" href="#">телефон</a>
+    </div>
+    <span>© <span id="year"></span> Lingua</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var C = window.SITE_CONFIG || {};
+
+  // Подставляем настройки в страницу
+  document.querySelectorAll('[data-config]').forEach(function (el) {
+    var v = C[el.getAttribute('data-config')];
+    if (v) el.textContent = v;
+  });
+  document.querySelectorAll('[data-config-link]').forEach(function (el) {
+    var key = el.getAttribute('data-config-link');
+    var v = C[key];
+    if (!v) return;
+    el.textContent = v;
+    el.href = key === 'EMAIL' ? 'mailto:' + v : 'tel:' + v.replace(/[^\d+]/g, '');
+  });
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Кнопка «Самостоятельно» переключает форму на взрослого
+  document.querySelectorAll('[data-audience]').forEach(function (a) {
+    a.addEventListener('click', function () {
+      var r = document.getElementById('aud-' + a.getAttribute('data-audience'));
+      if (r) r.checked = true;
+    });
+  });
+
+  // ── Форма заявки ──
+  var form = document.getElementById('lead-form');
+  var errorEl = document.getElementById('form-error');
+  var submitBtn = document.getElementById('form-submit');
+  var success = document.getElementById('form-success');
+  var startedAt = Date.now();
+
+  function isValidContact(v) {
+    var email = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    var digits = v.replace(/\D/g, '');
+    return email.test(v) || (digits.length >= 10 && digits.length <= 12 && !/[a-zа-я]/i.test(v));
+  }
+
+  function showError(msg, field) {
+    errorEl.textContent = msg;
+    form.querySelectorAll('[aria-invalid]').forEach(function (f) { f.removeAttribute('aria-invalid'); });
+    if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = form.elements.name;
+    var contact = form.elements.contact;
+    var consent = form.elements.consent;
+
+    if (!name.value.trim()) return showError('Введите имя', name);
+    if (!isValidContact(contact.value.trim())) return showError('Введите телефон (10–12 цифр) или email', contact);
+    if (!consent.checked) return showError('Нужно согласие на обработку персональных данных', consent);
+    if (!C.FORM_ENDPOINT) return showError('Форма ещё не подключена: укажите FORM_ENDPOINT в настройках сайта');
+
+    showError('');
+    var params = new URLSearchParams(location.search);
+    var data = new URLSearchParams({
+      name: name.value.trim(),
+      contact: contact.value.trim(),
+      audience: form.elements.audience.value,
+      consent: 'yes',
+      website: form.elements.website.value,
+      elapsed: String(Date.now() - startedAt),
+      page: location.href.split('?')[0],
+      referrer: document.referrer,
+      utm_source: params.get('utm_source') || '',
+      utm_medium: params.get('utm_medium') || '',
+      utm_campaign: params.get('utm_campaign') || ''
+    });
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Отправляем…';
+
+    fetch(C.FORM_ENDPOINT, { method: 'POST', body: data })
+      .then(function (res) { return res.json(); })
+      .then(function (json) {
+        if (!json.ok) throw new Error(json.error || 'server');
+        form.hidden = true;
+        success.hidden = false;
+        success.focus();
+      })
+      .catch(function () {
+        var fallback = C.PHONE ? ' или позвоните: ' + C.PHONE : '';
+        showError('Не удалось отправить заявку. Проверьте интернет и попробуйте ещё раз' + fallback + '.');
+      })
+      .finally(function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Получить ссылку на тест';
+      });
+  });
+})();
+</script>
+</body>
+</html>

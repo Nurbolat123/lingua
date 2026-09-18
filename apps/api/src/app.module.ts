@@ -9,6 +9,7 @@ import { CommonModule } from './common/common.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { Env, validateEnv } from './config/env';
+import { ContentModule } from './content/content.module';
 import { CuratorModule } from './curator/curator.module';
 import { DbModule } from './db/db.module';
 import { FamilyModule } from './family/family.module';
@@ -40,6 +41,7 @@ import { UsersModule } from './users/users.module';
     FamilyModule,
     AdminModule,
     CuratorModule,
+    ContentModule,
     HealthModule,
   ],
   providers: [

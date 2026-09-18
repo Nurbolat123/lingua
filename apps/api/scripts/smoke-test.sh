@@ -107,5 +107,34 @@ R=$(req PATCH /admin/users/$MINOR_ID/status 200 "$ADMIN" '{"status":"ACTIVE"}')
 
 [[ $(req GET "/admin/users?search=minor$RUN" 200 "$ADMIN" | json total) == 1 ]]
 
+echo "▸ content: courses, lessons, blocks, exercises"
+req GET /admin/content/courses 403 "$CURATOR" >/dev/null
+CID=$(req POST /admin/content/courses 201 "$ADMIN" '{"title":"Smoke Course","level":"B1","audience":"ADULTS"}' | json id)
+req PATCH /admin/content/courses/$CID 200 "$ADMIN" '{"title":"Smoke Course v2"}' >/dev/null
+MID=$(req POST /admin/content/courses/$CID/modules 201 "$ADMIN" '{"title":"Module 1"}' | json id)
+LID=$(req POST /admin/content/modules/$MID/lessons 201 "$ADMIN" '{"title":"Lesson 1"}' | json id)
+[[ $(req GET /admin/content/courses/$CID 200 "$ADMIN" | json modules.0.lessons.0.title) == "Lesson 1" ]]
+BID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" '{"type":"EXERCISE"}' | json id)
+EID=$(req POST /admin/content/blocks/$BID/exercises 201 "$ADMIN" '{"type":"MULTIPLE_CHOICE","content":{"question":"2+2?","options":["3","4"],"correctIndex":1}}' | json id)
+[[ $(req GET /admin/content/lessons/$LID 200 "$ADMIN" | json blocks.0.exercises.0.content.correctIndex) == 1 ]]
+req GET /admin/content/lessons/$LID/preview 200 "$ADMIN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{if("correctIndex" in JSON.parse(s).blocks[0].exercises[0].content) process.exit(1)})'
+req DELETE /admin/content/exercises/$EID 200 "$ADMIN" >/dev/null
+req DELETE /admin/content/courses/$CID 200 "$ADMIN" >/dev/null
+req GET /admin/content/courses/$CID 404 "$ADMIN" >/dev/null
+
+echo "▸ content: vocabulary"
+WID=$(req POST /admin/content/vocabulary 201 "$ADMIN" '{"word":"smokeword","translationRu":"тест","level":"B1"}' | json id)
+[[ $(req GET "/admin/content/vocabulary?search=smokeword" 200 "$ADMIN" | json total) == 1 ]]
+req PATCH /admin/content/vocabulary/$WID 200 "$ADMIN" '{"definition":"updated"}' >/dev/null
+IMPORT=$(req POST /admin/content/vocabulary/import 201 "$ADMIN" '{"csv":"word,translationRu,level\nsmokeword2,тест2,B1\nbadrow,,ZZ"}')
+[[ $(echo "$IMPORT" | json imported) == 1 ]]
+[[ $(echo "$IMPORT" | json skipped | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))') == 1 ]]
+req DELETE /admin/content/vocabulary/$WID 200 "$ADMIN" >/dev/null
+
+echo "▸ content: question bank"
+QID=$(req POST /admin/content/questions 201 "$ADMIN" '{"skill":"GRAMMAR","level":"B1","type":"MULTIPLE_CHOICE","content":{"question":"q","options":["a","b"],"correctIndex":0}}' | json id)
+[[ $(req GET "/admin/content/questions?skill=GRAMMAR&level=B1" 200 "$ADMIN" | json total) -ge 1 ]]
+req DELETE /admin/content/questions/$QID 200 "$ADMIN" >/dev/null
+
 rm -f "$BODY"
 echo "✔ All smoke checks passed"

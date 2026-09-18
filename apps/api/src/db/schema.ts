@@ -170,3 +170,153 @@ export const consentsRelations = relations(consents, ({ one }) => ({
 }));
 
 export type User = typeof users.$inferSelect;
+
+// ── Контент (этап 2) ────────────────────────────────────────
+export const audienceEnum = pgEnum('audience', ['KIDS', 'TEENS', 'ADULTS']);
+export const skillEnum = pgEnum('skill', ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING', 'SPEAKING']);
+export const lessonBlockTypeEnum = pgEnum('lesson_block_type', [
+  'INTRO', 'VOCABULARY', 'GRAMMAR', 'READING', 'LISTENING', 'EXERCISE', 'SPEAKING', 'MINI_TEST', 'HOMEWORK',
+]);
+export const exerciseTypeEnum = pgEnum('exercise_type', [
+  'MULTIPLE_CHOICE', 'FILL_BLANK', 'MATCHING', 'ORDERING', 'FREE_RESPONSE', 'SPEAKING',
+]);
+
+export type Audience = (typeof audienceEnum.enumValues)[number];
+export type Skill = (typeof skillEnum.enumValues)[number];
+export type LessonBlockType = (typeof lessonBlockTypeEnum.enumValues)[number];
+export type ExerciseType = (typeof exerciseTypeEnum.enumValues)[number];
+
+export const courses = pgTable('courses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: text('title').notNull(),
+  description: text('description'),
+  level: text('level').notNull(), // A1..C1 — см. common/levels.ts
+  audience: audienceEnum('audience').notNull(),
+  isDemo: boolean('is_demo').notNull().default(false),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const courseModules = pgTable(
+  'modules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    order: integer('order').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('modules_course_idx').on(t.courseId, t.order)],
+);
+
+export const lessons = pgTable(
+  'lessons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    moduleId: uuid('module_id').notNull().references(() => courseModules.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    order: integer('order').notNull().default(0),
+    estimatedMinutes: integer('estimated_minutes').notNull().default(20),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('lessons_module_idx').on(t.moduleId, t.order)],
+);
+
+export const lessonBlocks = pgTable(
+  'lesson_blocks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    lessonId: uuid('lesson_id').notNull().references(() => lessons.id, { onDelete: 'cascade' }),
+    type: lessonBlockTypeEnum('type').notNull(),
+    order: integer('order').notNull().default(0),
+    title: text('title'),
+    // Отображаемое содержимое (текст, аудио, транскрипт...); формат зависит от type
+    content: jsonb('content').notNull().default({}),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('lesson_blocks_lesson_idx').on(t.lessonId, t.order)],
+);
+
+export const exercises = pgTable(
+  'exercises',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    lessonBlockId: uuid('lesson_block_id').notNull().references(() => lessonBlocks.id, { onDelete: 'cascade' }),
+    type: exerciseTypeEnum('type').notNull(),
+    order: integer('order').notNull().default(0),
+    // Вопрос, варианты, правильный ответ — вместе; при отдаче студенту ответ вырезается на сервере
+    content: jsonb('content').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('exercises_block_idx').on(t.lessonBlockId, t.order)],
+);
+
+export const vocabularyWords = pgTable(
+  'vocabulary_words',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    word: text('word').notNull(),
+    translationRu: text('translation_ru').notNull(),
+    translationKk: text('translation_kk'),
+    definition: text('definition'),
+    level: text('level').notNull(),
+    transcription: text('transcription'),
+    audioUrl: text('audio_url'),
+    examples: jsonb('examples').notNull().default([]),
+    collocations: jsonb('collocations').notNull().default([]),
+    relatedWords: jsonb('related_words').notNull().default([]),
+    isDemo: boolean('is_demo').notNull().default(false),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('vocabulary_level_idx').on(t.level),
+    uniqueIndex('vocabulary_word_level_uq').on(t.word, t.level),
+  ],
+);
+
+export const questionBank = pgTable(
+  'question_bank',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    skill: skillEnum('skill').notNull(),
+    level: text('level').notNull(), // 9-ступенчатая шкала — см. common/levels.ts
+    difficulty: integer('difficulty').notNull().default(1), // 1–5, для полуадаптивной лестницы
+    type: exerciseTypeEnum('type').notNull(),
+    // Вопрос/аудио/варианты/правильный ответ — не отдаётся студенту до завершения попытки
+    content: jsonb('content').notNull(),
+    isDemo: boolean('is_demo').notNull().default(false),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('question_bank_skill_level_idx').on(t.skill, t.level)],
+);
+
+export const coursesRelations = relations(courses, ({ many }) => ({ modules: many(courseModules) }));
+
+export const courseModulesRelations = relations(courseModules, ({ one, many }) => ({
+  course: one(courses, { fields: [courseModules.courseId], references: [courses.id] }),
+  lessons: many(lessons),
+}));
+
+export const lessonsRelations = relations(lessons, ({ one, many }) => ({
+  module: one(courseModules, { fields: [lessons.moduleId], references: [courseModules.id] }),
+  blocks: many(lessonBlocks),
+}));
+
+export const lessonBlocksRelations = relations(lessonBlocks, ({ one, many }) => ({
+  lesson: one(lessons, { fields: [lessonBlocks.lessonId], references: [lessons.id] }),
+  exercises: many(exercises),
+}));
+
+export const exercisesRelations = relations(exercises, ({ one }) => ({
+  block: one(lessonBlocks, { fields: [exercises.lessonBlockId], references: [lessonBlocks.id] }),
+}));
+
+export type Course = typeof courses.$inferSelect;
+export type CourseModule = typeof courseModules.$inferSelect;
+export type Lesson = typeof lessons.$inferSelect;
+export type LessonBlock = typeof lessonBlocks.$inferSelect;
+export type Exercise = typeof exercises.$inferSelect;
+export type VocabularyWord = typeof vocabularyWords.$inferSelect;
+export type QuestionBankItem = typeof questionBank.$inferSelect;

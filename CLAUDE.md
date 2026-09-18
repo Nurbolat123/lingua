@@ -36,11 +36,12 @@ npm run dev                            # API: http://localhost:3001/api/v1, docs
 npm run db:generate                    # после изменения src/db/schema.ts
 npm run db:migrate
 npm run db:seed                        # админ из .env
+npm run db:seed:demo                   # демо-контент: курс/уроки/словарь/банк вопросов (не настоящий учебный контент)
 npm run typecheck
 NODE_ENV=test npm run dev && npm run test:smoke
 ```
 
-## Устройство API (уже сделано на этапе 1)
+## Устройство API (уже сделано на этапах 1–2)
 
 - `src/db/schema.ts` — вся схема БД. Изменение: схема → `db:generate` → `db:migrate`. Сгенерированные миграции не редактировать вручную, кроме добавления того, что Drizzle не умеет.
 - Глобальные guards: `ThrottlerGuard` → `JwtAuthGuard` → `RolesGuard`.
@@ -49,7 +50,10 @@ NODE_ENV=test npm run dev && npm run test:smoke
 - `AccessService.assertCanViewStudent(actor, studentId)` — **единственный** способ проверить доступ к данным ученика: ученик — себя, родитель — привязанных детей, куратор — назначенных учеников, админ — всех. Чужое → 404.
 - `AuditService.log()` — журнал важных действий.
 - `ConsentsService` — согласия с версиями: `DATA_PROCESSING`, `VOICE_RECORDING`, `CAMERA`, `MICROPHONE`, `MARKETING`.
-- Модули: `auth`, `users`, `consents`, `family` (ученик/родитель), `admin`, `curator`, `health`.
+- `common/levels.ts` — уровни: `COURSE_LEVELS` (A1–C1, курсы/словарь/цель ученика), `QUESTION_LEVELS` (9 ступеней, банк вопросов теста).
+- Модули: `auth`, `users`, `consents`, `family` (ученик/родитель), `admin`, `curator`, `content` (курсы/модули/уроки/блоки/упражнения, словарь, банк вопросов, загрузка файлов), `health`.
+- `content`: courses → modules → lessons → lessonBlocks → exercises. У упражнения `content` — JSONB с правильным ответом; `GET .../lessons/:id/preview` отдаёт то же самое, но без ответов (`CoursesService.stripAnswer`). CSV-импорт словаря и вопросов — `POST .../vocabulary/import` и `.../questions/import`, тело `{csv: string}`.
+- Файлы (аудио, картинки для контента): `POST /admin/content/uploads/presign` → presigned PUT в MinIO, публичный бакет `content` (не персональные данные, в отличие от записей речи учеников). Если MinIO не запущен, API всё равно стартует — просто загрузка недоступна.
 
 ## Обязательные правила
 

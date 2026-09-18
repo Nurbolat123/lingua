@@ -150,20 +150,8 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
   color: var(--ink);
   text-decoration: none;
-}
-.logoMark {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--blue);
-  color: #fff;
-  font-weight: 700;
-  font-size: 18px;
 }
 .logoName {
   font-weight: 700;

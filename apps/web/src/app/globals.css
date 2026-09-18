@@ -44,37 +44,45 @@ html {
   }
 }
 
-body {
-  margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-body), "Segoe UI", system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
+/*
+ * Everything unlayered beats every Tailwind utility, regardless of specificity
+ * (CSS cascade layers: unlayered rules form an implicit final layer). These are
+ * base-level defaults meant to be overridable by utility classes like text-muted
+ * on a <Link>, so they go in Tailwind's own "base" layer.
+ */
+@layer base {
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body), "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 
-img,
-svg {
-  max-width: 100%;
-}
+  img,
+  svg {
+    max-width: 100%;
+  }
 
-a {
-  color: var(--blue);
-}
+  a {
+    color: var(--blue);
+  }
 
-a:hover {
-  color: var(--blue-dark);
+  a:hover {
+    color: var(--blue-dark);
+  }
+
+  h1,
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
 }
 
 :focus-visible {
   outline: 3px solid var(--blue);
   outline-offset: 3px;
-}
-
-h1,
-h2,
-h3,
-p {
-  margin: 0;
 }
 
 .display {

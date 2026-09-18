@@ -37,11 +37,10 @@ export default function LandingPage() {
     <>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <Link className={styles.logo} href="#top" aria-label="Lingua, на главную">
-            <span className={styles.logoMark} aria-hidden="true">
-              L
+          <Link className={styles.logo} href="#top" aria-label="SoyleUp, на главную">
+            <span className={`display ${styles.logoName}`}>
+              Soyle<span style={{ color: "var(--blue)" }}>Up</span>
             </span>
-            <span className={`display ${styles.logoName}`}>Lingua</span>
           </Link>
           <nav className={styles.nav} aria-label="Разделы">
             <a href="#how">Как это работает</a>

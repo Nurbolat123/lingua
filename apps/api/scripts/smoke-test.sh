@@ -4,7 +4,7 @@
 set -euo pipefail
 
 API=${API:-http://localhost:3001/api/v1}
-ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@lingua.local}
+ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@soyleup.local}
 ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-ChangeMe-Admin-2026}
 RUN=$(date +%s%N)
 BODY=$(mktemp)

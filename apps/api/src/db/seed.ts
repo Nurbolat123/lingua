@@ -6,7 +6,7 @@ import { users } from './schema';
 try { process.loadEnvFile(); } catch { /* optional */ }
 
 async function main() {
-  const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@lingua.local').trim().toLowerCase();
+  const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@soyleup.local').trim().toLowerCase();
   const password = process.env.SEED_ADMIN_PASSWORD;
   if (!password || password.length < 12) throw new Error('SEED_ADMIN_PASSWORD (min 12 chars) is required');
 

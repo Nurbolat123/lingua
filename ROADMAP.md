@@ -34,7 +34,7 @@
 
 ---
 
-## [ ] Шаг 1. Сайт и кабинеты (web)
+## [x] Шаг 1. Сайт и кабинеты (web)
 
 ```
 Шаг 1 из ROADMAP. Создай apps/web на Next.js + TypeScript + Tailwind по правилам раздела Web в CLAUDE.md.

@@ -20,6 +20,14 @@ export type Role = (typeof roleEnum.enumValues)[number];
 export type UserStatus = (typeof userStatusEnum.enumValues)[number];
 export type ConsentType = (typeof consentTypeEnum.enumValues)[number];
 
+// Рубрика оценки Speaking куратором (1–5 по каждому параметру) — CLAUDE.md, этап 5
+export interface SpeakingRubric {
+  vocabulary: number;
+  grammar: number;
+  fluency: number;
+  pronunciation: number;
+}
+
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
 // ── Users ────────────────────────────────────────────────
@@ -335,7 +343,7 @@ export type QuestionBankItem = typeof questionBank.$inferSelect;
 
 // ── Placement test (этап 3) ─────────────────────────────
 export const attemptStatusEnum = pgEnum('attempt_status', ['IN_PROGRESS', 'COMPLETED']);
-export const skillSnapshotSourceEnum = pgEnum('skill_snapshot_source', ['PLACEMENT', 'CONTROL_TEST', 'LESSON_MINI_TEST']);
+export const skillSnapshotSourceEnum = pgEnum('skill_snapshot_source', ['PLACEMENT', 'CONTROL_TEST', 'LESSON_MINI_TEST', 'HOMEWORK']);
 
 export const placementAttempts = pgTable(
   'placement_attempts',
@@ -398,6 +406,7 @@ export const placementAnswersRelations = relations(placementAnswers, ({ one }) =
 export type PlacementAttempt = typeof placementAttempts.$inferSelect;
 export type PlacementAnswer = typeof placementAnswers.$inferSelect;
 export type SkillSnapshot = typeof skillSnapshots.$inferSelect;
+export type SkillSnapshotSource = (typeof skillSnapshotSourceEnum.enumValues)[number];
 
 // ── Обучение (этап 4) ────────────────────────────────────
 export const lessonProgressStatusEnum = pgEnum('lesson_progress_status', ['IN_PROGRESS', 'COMPLETED']);
@@ -431,6 +440,11 @@ export const lessonExerciseAnswers = pgTable(
     audioKey: text('audio_key'), // ключ в приватном бакете speaking, для SPEAKING-упражнений
     isCorrect: boolean('is_correct'), // null — не проверяется автоматически (FREE_RESPONSE, SPEAKING)
     answeredAt: ts('answered_at').notNull().defaultNow(),
+    // Проверка куратором (этап 5) — для SPEAKING-упражнений
+    rubric: jsonb('rubric').$type<SpeakingRubric>(),
+    reviewComment: text('review_comment'),
+    reviewedAt: ts('reviewed_at'),
+    reviewedByCuratorId: uuid('reviewed_by_curator_id').references(() => users.id, { onDelete: 'set null' }),
   },
   (t) => [
     uniqueIndex('lesson_exercise_answers_progress_exercise_uq').on(t.progressId, t.exerciseId),
@@ -478,3 +492,50 @@ export const studentVocabularyRelations = relations(studentVocabulary, ({ one })
 export type LessonProgress = typeof lessonProgress.$inferSelect;
 export type LessonExerciseAnswer = typeof lessonExerciseAnswers.$inferSelect;
 export type StudentVocabulary = typeof studentVocabulary.$inferSelect;
+
+// ── Домашние задания и куратор (этап 5) ─────────────────────
+export const homeworkStatusEnum = pgEnum('homework_status', ['ASSIGNED', 'SUBMITTED', 'REVIEWED', 'RETURNED']);
+
+export interface IntegritySignals {
+  tabAwayCount: number;
+  fullscreenExitCount: number;
+  pasteDetected: boolean;
+}
+
+export const homework = pgTable(
+  'homework',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    // Куратор, назначивший ДЗ вручную; null — задание пришло автоматически из блока урока HOMEWORK
+    assignedByCuratorId: uuid('assigned_by_curator_id').references(() => users.id, { onDelete: 'set null' }),
+    lessonId: uuid('lesson_id').references(() => lessons.id, { onDelete: 'set null' }),
+    lessonBlockId: uuid('lesson_block_id').references(() => lessonBlocks.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    instructions: text('instructions'),
+    // Контроль самостоятельной работы: сигналы браузера фиксируются только для помеченных заданий
+    requiresIntegrityCheck: boolean('requires_integrity_check').notNull().default(false),
+    dueAt: ts('due_at'),
+    status: homeworkStatusEnum('status').notNull().default('ASSIGNED'),
+    submissionText: text('submission_text'),
+    submissionAudioKey: text('submission_audio_key'),
+    submittedAt: ts('submitted_at'),
+    integritySignals: jsonb('integrity_signals').$type<IntegritySignals>(),
+    rubric: jsonb('rubric').$type<SpeakingRubric>(),
+    reviewComment: text('review_comment'),
+    reviewedAt: ts('reviewed_at'),
+    reviewedByCuratorId: uuid('reviewed_by_curator_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index('homework_student_status_idx').on(t.studentId, t.status),
+  ],
+);
+
+export const homeworkRelations = relations(homework, ({ one }) => ({
+  student: one(users, { fields: [homework.studentId], references: [users.id] }),
+  lesson: one(lessons, { fields: [homework.lessonId], references: [lessons.id] }),
+}));
+
+export type Homework = typeof homework.$inferSelect;

@@ -1,6 +1,6 @@
 import { BadGatewayException, Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { Env } from '../config/env';
@@ -8,11 +8,12 @@ import { PresignSpeakingDto } from './dto/presign-speaking.dto';
 import { createS3Client, ensureBucketQuiet } from './s3';
 
 const UPLOAD_URL_TTL_SECONDS = 5 * 60;
+const LISTEN_URL_TTL_SECONDS = 5 * 60;
 
 /**
  * Приватный бакет для голосовых записей учеников (в отличие от общедоступного `content`
- * для учебных материалов). Presigned GET для прослушивания куратором появится на этапе 5
- * вместе с журналом доступа к записям — сейчас только приём загрузки.
+ * для учебных материалов). Presigned GET для прослушивания куратором — короткий срок жизни,
+ * каждый вызов пишется в аудит вызывающим сервисом (правило «доступ к записям — в аудит»).
  */
 @Injectable()
 export class SpeakingStorageService implements OnModuleInit {
@@ -43,6 +44,16 @@ export class SpeakingStorageService implements OnModuleInit {
         { expiresIn: UPLOAD_URL_TTL_SECONDS },
       );
       return { uploadUrl, key, expiresIn: UPLOAD_URL_TTL_SECONDS };
+    } catch (e) {
+      throw new BadGatewayException(`Хранилище файлов недоступно: ${(e as Error).message}`);
+    }
+  }
+
+  async getListenUrl(key: string): Promise<string> {
+    try {
+      return await getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
+        expiresIn: LISTEN_URL_TTL_SECONDS,
+      });
     } catch (e) {
       throw new BadGatewayException(`Хранилище файлов недоступно: ${(e as Error).message}`);
     }

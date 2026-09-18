@@ -67,6 +67,12 @@ export function recalcSkillScore(oldScore: number | null, result: number, weight
   return Math.round(Math.max(0, Math.min(100, base * (1 - weight) + result * weight)));
 }
 
+/** Рубрика куратора для Speaking (vocabulary/grammar/fluency/pronunciation, 1–5) → балл 0–100: 1 → 0, 5 → 100. */
+export function rubricToScore(rubric: { vocabulary: number; grammar: number; fluency: number; pronunciation: number }): number {
+  const avg = (rubric.vocabulary + rubric.grammar + rubric.fluency + rubric.pronunciation) / 4;
+  return Math.round(((avg - 1) / 4) * 100);
+}
+
 /**
  * Навыки, отсортированные по отставанию от цели (для плана на день берутся первые три).
  * Неизмеренный навык считается максимально приоритетным.

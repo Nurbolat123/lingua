@@ -218,5 +218,85 @@ req POST /learning/lessons/$LID/blocks/$MTBID/complete 201 "$PTOKEN" >/dev/null
 echo "▸ learning: чужой прогресс недоступен"
 req POST /learning/vocabulary/$WVID/review 404 "$OTOKEN" '{"quality":4}' >/dev/null
 
+echo "▸ куратор: домашние задания и проверка speaking"
+HWCID=$(req POST /admin/users 201 "$ADMIN" "{\"email\":\"hwcur$RUN@t.kz\",\"password\":\"curator-pass-123\",\"firstName\":\"Homework\",\"role\":\"CURATOR\"}" | json id)
+HWCUR=$(req POST /auth/login 200 "" "{\"email\":\"hwcur$RUN@t.kz\",\"password\":\"curator-pass-123\"}" | json accessToken)
+OTHERCUR=$(req POST /admin/users 201 "$ADMIN" "{\"email\":\"othercur$RUN@t.kz\",\"password\":\"curator-pass-123\",\"firstName\":\"Other\",\"role\":\"CURATOR\"}" | json id)
+OTHERCURTOKEN=$(req POST /auth/login 200 "" "{\"email\":\"othercur$RUN@t.kz\",\"password\":\"curator-pass-123\"}" | json accessToken)
+req POST /admin/curator-assignments 201 "$ADMIN" "{\"curatorId\":\"$HWCID\",\"studentId\":\"$PID\"}" >/dev/null
+
+# Ручное ДЗ, сдача текстом+аудио, проверка с рубрикой → двигает Speaking
+HWID=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$PID\",\"title\":\"Расскажи о себе\",\"requiresIntegrityCheck\":true}" | json id)
+req GET /curator/review-queue 403 "$PTOKEN" >/dev/null   # не куратор
+[[ $(req GET /learning/homework 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(h=>h.id==="'"$HWID"'")))') == true ]]
+req POST /learning/homework/$HWID/submit 201 "$PTOKEN" '{"text":"Hello, my name is...","audioKey":"fake/hw.webm","integritySignals":{"tabAwayCount":1,"fullscreenExitCount":0,"pasteDetected":false}}' >/dev/null
+[[ $(req GET /curator/review-queue 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(i=>i.type==="HOMEWORK"&&i.id==="'"$HWID"'")))') == true ]]
+req GET /curator/review-queue 200 "$OTHERCURTOKEN" >/dev/null   # чужой куратор — просто пустая своя очередь, не ошибка
+req GET /curator/homework/$HWID/listen 404 "$OTHERCURTOKEN" >/dev/null   # чужой ученик — не видно
+SPEAK_BEFORE=$(req GET /curator/students/$PID 200 "$HWCUR" | json studentProfile.speakingScore)
+req GET /curator/homework/$HWID/listen 200 "$HWCUR" >/dev/null
+req POST /curator/homework/$HWID/review 201 "$HWCUR" '{"action":"APPROVE","rubric":{"vocabulary":4,"grammar":4,"fluency":4,"pronunciation":4},"comment":"Хорошо"}' >/dev/null
+SPEAK_AFTER=$(req GET /curator/students/$PID 200 "$HWCUR" | json studentProfile.speakingScore)
+[[ $SPEAK_AFTER != "$SPEAK_BEFORE" ]]
+[[ $(req GET /students/$PID/skill-history 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(x=>x.source==="HOMEWORK")))') == true ]]
+
+# Возврат на доработку → пересдача → зачёт без рубрики (без аудио)
+HWID2=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$PID\",\"title\":\"Напиши 5 предложений\"}" | json id)
+req POST /learning/homework/$HWID2/submit 201 "$PTOKEN" '{"text":"short"}' >/dev/null
+req POST /curator/homework/$HWID2/review 400 "$HWCUR" '{"action":"RETURN"}' >/dev/null   # без комментария нельзя
+req POST /curator/homework/$HWID2/review 201 "$HWCUR" '{"action":"RETURN","comment":"Добавь ещё предложений"}' >/dev/null
+[[ $(req GET /learning/homework 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).find(h=>h.id==="'"$HWID2"'").status))') == RETURNED ]]
+req POST /learning/homework/$HWID2/submit 201 "$PTOKEN" '{"text":"one two three four five sentences here"}' >/dev/null
+req POST /curator/homework/$HWID2/review 201 "$HWCUR" '{"action":"APPROVE","comment":"Отлично"}' >/dev/null   # без рубрики — без аудио и не нужна
+
+# Рубрика без аудио запрещена
+HWID3=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$PID\",\"title\":\"Тест3\"}" | json id)
+req POST /learning/homework/$HWID3/submit 201 "$PTOKEN" '{"text":"no audio"}' >/dev/null
+req POST /curator/homework/$HWID3/review 400 "$HWCUR" '{"action":"APPROVE","rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3}}' >/dev/null
+
+echo "▸ куратор: проверка speaking в уроке"
+SPBID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" '{"type":"SPEAKING","order":2}' | json id)
+SPEID=$(req POST /admin/content/blocks/$SPBID/exercises 201 "$ADMIN" '{"type":"SPEAKING","content":{"prompt":"Tell me about yourself"}}' | json id)
+req POST /learning/lessons/$LID/exercises/$SPEID/speaking 201 "$PTOKEN" '{"audioKey":"fake/lesson-speak.webm"}' >/dev/null
+ANSID=$(req GET /learning/lessons/$LID 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const l=JSON.parse(s);for(const b of l.blocks)for(const e of b.exercises)if(e.id==="'"$SPEID"'")console.log("ok")})')
+LANSID=$(req GET /curator/students/$PID/speaking-recordings 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).lesson[0].id))')
+req GET /curator/lesson-answers/$LANSID/recording 404 "$OTHERCURTOKEN" >/dev/null
+req GET /curator/lesson-answers/$LANSID/recording 200 "$HWCUR" >/dev/null
+req POST /curator/lesson-answers/$LANSID/review-speaking 201 "$HWCUR" '{"rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3},"comment":"ok"}' >/dev/null
+req POST /curator/lesson-answers/$LANSID/review-speaking 400 "$HWCUR" '{"rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3}}' >/dev/null   # уже проверено
+
+echo "▸ куратор: проверка speaking из плейсмент-теста"
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"$SK\",\"level\":\"B1\",\"type\":\"MULTIPLE_CHOICE\",\"content\":{\"question\":\"hw-$SK-$i-$RUN\",\"options\":[\"correct\",\"wrong\"],\"correctIndex\":0}}" >/dev/null
+  done
+done
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak hw $RUN\"}}" >/dev/null
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak hw $RUN 2\"}}" >/dev/null
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    QID=$(req GET /placement/attempts/$AID2/next-question 200 "$PTOKEN" | json question.id)
+    req POST /placement/attempts/$AID2/answers 201 "$PTOKEN" "{\"questionId\":\"$QID\",\"answer\":0}" >/dev/null
+  done
+done
+for i in 1 2; do
+  QID=$(req GET /placement/attempts/$AID2/next-question 200 "$PTOKEN" | json question.id)
+  req POST /placement/attempts/$AID2/speaking 201 "$PTOKEN" "{\"questionId\":\"$QID\",\"audioKey\":\"fake/placement-hw-$i.webm\"}" >/dev/null
+done
+[[ $(req GET /placement/attempts/$AID2 200 "$PTOKEN" | json results.SPEAKING.status) == PENDING ]]
+[[ $(req GET /curator/review-queue 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(i=>i.type==="PLACEMENT"&&i.id==="'"$AID2"'")))') == true ]]
+req POST /curator/placement-attempts/$AID2/review-speaking 404 "$OTHERCURTOKEN" '{"rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3}}' >/dev/null
+req POST /curator/placement-attempts/$AID2/review-speaking 201 "$HWCUR" '{"rubric":{"vocabulary":5,"grammar":5,"fluency":5,"pronunciation":5},"comment":"Отлично"}' >/dev/null
+[[ $(req GET /curator/students/$PID 200 "$HWCUR" | json studentProfile.speakingScore) == 100 ]]
+req POST /curator/placement-attempts/$AID2/review-speaking 400 "$HWCUR" '{"rubric":{"vocabulary":1,"grammar":1,"fluency":1,"pronunciation":1}}' >/dev/null   # уже проверено
+
+echo "▸ куратор: список учеников (фильтры) и план"
+[[ $(req GET "/curator/students?hasPending=true" 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(x=>x.id==="'"$PID"'")))') == true ]]
+req PATCH /curator/students/$PID/plan 200 "$HWCUR" '{"targetLevel":"C1"}' >/dev/null
+[[ $(req GET /users/me 200 "$PTOKEN" | json studentProfile.targetLevel) == C1 ]]
+req PATCH /curator/students/$PID/plan 404 "$OTHERCURTOKEN" '{"targetLevel":"A1"}' >/dev/null
+req GET /curator/students/$PID 404 "$OTHERCURTOKEN" >/dev/null
+req GET /curator/students/$PID/mistakes 404 "$OTHERCURTOKEN" >/dev/null
+
 rm -f "$BODY"
 echo "✔ All smoke checks passed"

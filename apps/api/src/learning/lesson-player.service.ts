@@ -6,12 +6,16 @@ import {
   consents, exercises, lessonBlocks, lessonExerciseAnswers, LessonExerciseAnswer, lessonProgress, lessons,
   studentVocabulary, vocabularyWords,
 } from '../db/schema';
+import { HomeworkService } from '../homework/homework.service';
 import { SubmitLessonAnswerDto, SubmitLessonSpeakingDto } from './dto/learning.dto';
 import { recalcSkillAfterMiniTest } from './skill-recalc';
 
 @Injectable()
 export class LessonPlayerService {
-  constructor(@Inject(DB) private readonly db: Database) {}
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly homeworkService: HomeworkService,
+  ) {}
 
   async getLesson(userId: string, lessonId: string) {
     const lesson = await this.db.query.lessons.findFirst({
@@ -95,6 +99,9 @@ export class LessonPlayerService {
 
     if (block.type === 'VOCABULARY') {
       await this.addWordsToVocabulary(userId, block.content as Record<string, unknown>);
+    }
+    if (block.type === 'HOMEWORK') {
+      await this.homeworkService.autoAssignFromBlock(userId, lessonId, block);
     }
 
     const progress = await this.getOrCreateProgress(userId, lessonId);

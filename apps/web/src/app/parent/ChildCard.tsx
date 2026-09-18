@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { setConsent, unlinkChild } from "./actions";
+import { StatusBadge } from "@/components/StatusBadge";
 import type { ChildSummary, ConsentType } from "@/lib/types";
 
 const CONSENT_LABELS: Record<ConsentType, string> = {
@@ -19,18 +20,6 @@ const CONSENT_ORDER: ConsentType[] = [
   "MICROPHONE",
   "MARKETING",
 ];
-
-const STATUS_LABEL: Record<ChildSummary["status"], string> = {
-  ACTIVE: "Активен",
-  PENDING_CONSENT: "Ждёт согласия",
-  BLOCKED: "Заблокирован",
-};
-
-const STATUS_CLASS: Record<ChildSummary["status"], string> = {
-  ACTIVE: "bg-lime text-ink",
-  PENDING_CONSENT: "bg-paper-2 text-ink-2",
-  BLOCKED: "bg-error text-white",
-};
 
 export function ChildCard({ child }: { child: ChildSummary }) {
   const [pending, startTransition] = useTransition();
@@ -57,9 +46,7 @@ export function ChildCard({ child }: { child: ChildSummary }) {
             {child.studentProfile.dailyMinutes} мин/день
           </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${STATUS_CLASS[child.status]}`}>
-          {STATUS_LABEL[child.status]}
-        </span>
+        <StatusBadge status={child.status} />
       </div>
 
       {child.studentProfile.isMinor ? (

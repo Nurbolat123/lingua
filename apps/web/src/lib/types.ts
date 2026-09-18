@@ -55,3 +55,34 @@ export interface ChildSummary {
   };
   consents: ActiveConsent[];
 }
+
+export interface CuratorStudent {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  status: "ACTIVE" | "PENDING_CONSENT" | "BLOCKED";
+  lastLoginAt: string | null;
+  assignedAt: string;
+  studentProfile: {
+    isMinor: boolean;
+    targetLevel: CefrTarget | null;
+    dailyMinutes: number;
+  };
+}
+
+export interface StudentSummary {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  status: "ACTIVE" | "PENDING_CONSENT" | "BLOCKED";
+  locale: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+  studentProfile: {
+    isMinor: boolean;
+    targetLevel: CefrTarget | null;
+    goal: string | null;
+    dailyMinutes: number;
+  };
+  curator: { id: string; firstName: string; lastName: string | null; assignedAt: string } | null;
+}

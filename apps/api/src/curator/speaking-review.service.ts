@@ -10,7 +10,8 @@ import {
   curatorStudents, exercises, homework, lessonExerciseAnswers, lessonProgress, lessons, placementAnswers,
   placementAttempts, questionBank, users,
 } from '../db/schema';
-import { recalcSkill } from '../learning/skill-recalc';
+import { SkillRecalcService } from '../learning/skill-recalc.service';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { ReviewSpeakingDto } from './dto/curator.dto';
 
 const LESSON_SPEAKING_WEIGHT = 0.1; // как мини-тест урока
@@ -25,6 +26,8 @@ export class SpeakingReviewService {
     private readonly access: AccessService,
     private readonly audit: AuditService,
     private readonly speakingStorage: SpeakingStorageService,
+    private readonly skillRecalc: SkillRecalcService,
+    private readonly events: NotificationEventsService,
   ) {}
 
   private async myStudentIds(curatorId: string): Promise<string[]> {
@@ -149,7 +152,7 @@ export class SpeakingReviewService {
     if (!speaking || speaking.status !== 'PENDING') throw new BadRequestException('Speaking is not awaiting review for this attempt');
 
     const score = rubricToScore(dto.rubric);
-    await recalcSkill(this.db, attempt.userId, 'SPEAKING', score, 1, 'PLACEMENT'); // вес 1 = прямая установка, как остальные навыки теста
+    await this.skillRecalc.recalcSkill(attempt.userId, 'SPEAKING', score, 1, 'PLACEMENT'); // вес 1 = прямая установка, как остальные навыки теста
 
     const updatedResults = {
       ...results,
@@ -163,7 +166,17 @@ export class SpeakingReviewService {
       },
     };
     await this.db.update(placementAttempts).set({ results: updatedResults }).where(eq(placementAttempts.id, attemptId));
+    await this.notifyReviewed(attempt.userId, 'Вступительный тест — Speaking');
     return updatedResults.SPEAKING;
+  }
+
+  private async notifyReviewed(studentId: string, title: string) {
+    const parentIds = await this.access.getActiveParentIds(studentId);
+    await this.events.emit('REVIEW_CREATED', [studentId, ...parentIds], {
+      title: 'Куратор оценил запись речи',
+      body: `«${title}» — проверено, посмотрите результат.`,
+      meta: { studentId },
+    });
   }
 
   // ── Speaking-упражнения в уроках ─────────────────────────
@@ -197,13 +210,14 @@ export class SpeakingReviewService {
     await this.access.assertCanViewStudent(actor, row.progress.userId);
 
     const score = rubricToScore(dto.rubric);
-    await recalcSkill(this.db, row.progress.userId, 'SPEAKING', score, LESSON_SPEAKING_WEIGHT, 'LESSON_MINI_TEST');
+    await this.skillRecalc.recalcSkill(row.progress.userId, 'SPEAKING', score, LESSON_SPEAKING_WEIGHT, 'LESSON_MINI_TEST');
 
     const [updated] = await this.db
       .update(lessonExerciseAnswers)
       .set({ rubric: dto.rubric, reviewComment: dto.comment ?? null, reviewedAt: new Date(), reviewedByCuratorId: actor.id })
       .where(eq(lessonExerciseAnswers.id, answerId))
       .returning();
+    await this.notifyReviewed(row.progress.userId, 'Speaking-упражнение урока');
     return updated;
   }
 }

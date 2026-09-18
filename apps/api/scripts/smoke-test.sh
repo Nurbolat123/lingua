@@ -298,5 +298,40 @@ req PATCH /curator/students/$PID/plan 404 "$OTHERCURTOKEN" '{"targetLevel":"A1"}
 req GET /curator/students/$PID 404 "$OTHERCURTOKEN" >/dev/null
 req GET /curator/students/$PID/mistakes 404 "$OTHERCURTOKEN" >/dev/null
 
+echo "▸ уведомления: очередь, настройки, Telegram-привязка"
+NOTIFPARENT=$(register PARENT "notifparent$RUN@t.kz" | json accessToken)
+NCODE=$(req POST /students/me/link-code 201 "$PTOKEN" | json code)
+req POST /parents/children/link 201 "$NOTIFPARENT" "{\"code\":\"$NCODE\"}" >/dev/null
+
+NCID=$(req POST /admin/content/courses 201 "$ADMIN" '{"title":"Notif smoke course","level":"B1","audience":"ADULTS"}' | json id)
+NMID=$(req POST /admin/content/courses/$NCID/modules 201 "$ADMIN" '{"title":"M1"}' | json id)
+NLID=$(req POST /admin/content/modules/$NMID/lessons 201 "$ADMIN" '{"title":"Notif lesson"}' | json id)
+NBID=$(req POST /admin/content/lessons/$NLID/blocks 201 "$ADMIN" '{"type":"INTRO","order":0}' | json id)
+req POST /learning/lessons/$NLID/blocks/$NBID/complete 201 "$PTOKEN" >/dev/null
+sleep 1   # доставка через очередь BullMQ асинхронна
+
+LIST=$(req GET /notifications 200 "$NOTIFPARENT")
+[[ $(echo "$LIST" | json unread) == 1 ]]
+[[ $(echo "$LIST" | json 'items.0.type') == LESSON_COMPLETED ]]
+NID=$(echo "$LIST" | json 'items.0.id')
+req GET /notifications 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{if(JSON.parse(s).items.some(i=>i.type==="LESSON_COMPLETED"))throw new Error("student should not receive LESSON_COMPLETED (parent-only)")})'
+
+req POST /notifications/$NID/read 201 "$NOTIFPARENT" >/dev/null
+[[ $(req GET /notifications 200 "$NOTIFPARENT" | json unread) == 0 ]]
+
+SETTINGS=$(req GET /notifications/settings 200 "$NOTIFPARENT")
+[[ $(echo "$SETTINGS" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))') == 6 ]]
+req PATCH /notifications/settings/LESSON_COMPLETED 200 "$NOTIFPARENT" '{"inApp":false,"email":false,"telegram":false}' >/dev/null
+
+NLID2=$(req POST /admin/content/modules/$NMID/lessons 201 "$ADMIN" '{"title":"Notif lesson 2","order":1}' | json id)
+NBID2=$(req POST /admin/content/lessons/$NLID2/blocks 201 "$ADMIN" '{"type":"INTRO","order":0}' | json id)
+req POST /learning/lessons/$NLID2/blocks/$NBID2/complete 201 "$PTOKEN" >/dev/null
+sleep 1
+[[ $(req GET /notifications 200 "$NOTIFPARENT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).items.length))') == 1 ]]   # отключённый тип не пришёл повторно
+
+LC=$(req POST /notifications/telegram/link-code 201 "$NOTIFPARENT")
+[[ $(echo "$LC" | json code | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(s.trim().length))') == 8 ]]
+req GET /notifications/telegram/status 200 "$NOTIFPARENT" >/dev/null
+
 rm -f "$BODY"
 echo "✔ All smoke checks passed"

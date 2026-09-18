@@ -423,6 +423,8 @@ export const lessonProgress = pgTable(
     activeSeconds: integer('active_seconds').notNull().default(0),
     startedAt: ts('started_at').notNull().defaultNow(),
     completedAt: ts('completed_at'),
+    // Последнее касание (heartbeat/ответ/завершение блока) — для проверки «занимался сегодня»
+    updatedAt: ts('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
   },
   (t) => [
     uniqueIndex('lesson_progress_user_lesson_uq').on(t.userId, t.lessonId),
@@ -539,3 +541,53 @@ export const homeworkRelations = relations(homework, ({ one }) => ({
 }));
 
 export type Homework = typeof homework.$inferSelect;
+
+// ── Уведомления (этап 6) ────────────────────────────────────
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'LESSON_COMPLETED', 'ASSIGNMENT_CREATED', 'ASSIGNMENT_OVERDUE', 'REVIEW_CREATED', 'SCORE_DROPPED', 'LESSON_MISSED',
+]);
+export const notificationChannelEnum = pgEnum('notification_channel', ['IN_APP', 'EMAIL', 'TELEGRAM']);
+export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
+export type NotificationChannel = (typeof notificationChannelEnum.enumValues)[number];
+
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    type: notificationTypeEnum('type').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    // Ссылка на связанную сущность для перехода из уведомления (studentId, homeworkId, lessonId…)
+    meta: jsonb('meta'),
+    readAt: ts('read_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('notifications_user_idx').on(t.userId, t.createdAt)],
+);
+
+// Настройки по умолчанию — все каналы включены; строка создаётся только при отключении
+export const notificationSettings = pgTable(
+  'notification_settings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    type: notificationTypeEnum('type').notNull(),
+    inApp: boolean('in_app').notNull().default(true),
+    email: boolean('email').notNull().default(true),
+    telegram: boolean('telegram').notNull().default(true),
+  },
+  (t) => [uniqueIndex('notification_settings_user_type_uq').on(t.userId, t.type)],
+);
+
+export const telegramLinks = pgTable('telegram_links', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  chatId: text('chat_id'),
+  linkCode: text('link_code').unique(),
+  linkCodeExpiresAt: ts('link_code_expires_at'),
+  linkedAt: ts('linked_at'),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type NotificationSetting = typeof notificationSettings.$inferSelect;
+export type TelegramLink = typeof telegramLinks.$inferSelect;

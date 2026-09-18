@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { AccessService } from '../common/access.service';
 import { gradeAnswer, stripAnswer } from '../common/exerciseContent';
 import { DB, Database } from '../db/db.module';
 import {
@@ -7,14 +8,18 @@ import {
   studentVocabulary, vocabularyWords,
 } from '../db/schema';
 import { HomeworkService } from '../homework/homework.service';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { SubmitLessonAnswerDto, SubmitLessonSpeakingDto } from './dto/learning.dto';
-import { recalcSkillAfterMiniTest } from './skill-recalc';
+import { SkillRecalcService } from './skill-recalc.service';
 
 @Injectable()
 export class LessonPlayerService {
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly homeworkService: HomeworkService,
+    private readonly skillRecalc: SkillRecalcService,
+    private readonly events: NotificationEventsService,
+    private readonly access: AccessService,
   ) {}
 
   async getLesson(userId: string, lessonId: string) {
@@ -70,7 +75,7 @@ export class LessonPlayerService {
     await this.upsertAnswer(progress.id, exerciseId, { answer: dto.answer as object, isCorrect });
 
     if (exercise.skill && isCorrect !== null) {
-      await recalcSkillAfterMiniTest(this.db, userId, exercise.skill, isCorrect);
+      await this.skillRecalc.recalcSkillAfterMiniTest(userId, exercise.skill, isCorrect);
     }
 
     const content = exercise.content as Record<string, unknown>;
@@ -112,6 +117,8 @@ export class LessonPlayerService {
     });
     const isLast = !lastBlock || block.order >= lastBlock.order;
 
+    const justCompleted = isLast && progress.status !== 'COMPLETED';
+
     const [updated] = await this.db
       .update(lessonProgress)
       .set({
@@ -122,7 +129,23 @@ export class LessonPlayerService {
       .where(eq(lessonProgress.id, progress.id))
       .returning();
 
+    if (justCompleted) {
+      await this.notifyLessonCompleted(userId, lessonId, updated.activeSeconds);
+    }
+
     return { status: updated.status, currentBlockOrder: updated.currentBlockOrder };
+  }
+
+  private async notifyLessonCompleted(userId: string, lessonId: string, activeSeconds: number) {
+    const lesson = await this.db.query.lessons.findFirst({ where: eq(lessons.id, lessonId), columns: { title: true } });
+    const parentIds = await this.access.getActiveParentIds(userId);
+    if (!parentIds.length) return;
+    const minutes = Math.max(1, Math.round(activeSeconds / 60));
+    await this.events.emit('LESSON_COMPLETED', parentIds, {
+      title: 'Урок завершён',
+      body: `Урок «${lesson?.title ?? ''}» завершён, время занятия — ${minutes} мин. Отчёт доступен в кабинете.`,
+      meta: { studentId: userId, lessonId },
+    });
   }
 
   /** Активное время (не просто открытая вкладка — клиент шлёт «пульс» только пока ученик взаимодействует). */

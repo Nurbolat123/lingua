@@ -8,7 +8,8 @@ import { PresignSpeakingDto } from '../common/dto/presign-speaking.dto';
 import { SpeakingStorageService } from '../common/speaking-storage.service';
 import { DB, Database } from '../db/db.module';
 import { homework, LessonBlock } from '../db/schema';
-import { recalcSkill } from '../learning/skill-recalc';
+import { SkillRecalcService } from '../learning/skill-recalc.service';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { AssignHomeworkDto, ReviewHomeworkDto, SubmitHomeworkDto } from './dto/homework.dto';
 
 const HOMEWORK_SPEAKING_WEIGHT = 0.1; // как мини-тест урока — см. CLAUDE.md и обсуждение шага 5
@@ -20,6 +21,8 @@ export class HomeworkService {
     private readonly access: AccessService,
     private readonly audit: AuditService,
     private readonly speakingStorage: SpeakingStorageService,
+    private readonly skillRecalc: SkillRecalcService,
+    private readonly events: NotificationEventsService,
   ) {}
 
   /** Автоматическое ДЗ из блока урока HOMEWORK — вызывается при завершении блока (идемпотентно). */
@@ -40,6 +43,7 @@ export class HomeworkService {
         instructions: (content?.text as string | undefined) ?? null,
       })
       .returning();
+    await this.notifyAssigned(row.studentId, row.title);
     return row;
   }
 
@@ -56,7 +60,16 @@ export class HomeworkService {
         dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
       })
       .returning();
+    await this.notifyAssigned(row.studentId, row.title);
     return row;
+  }
+
+  private async notifyAssigned(studentId: string, title: string) {
+    await this.events.emit('ASSIGNMENT_CREATED', [studentId], {
+      title: 'Новое домашнее задание',
+      body: `«${title}» — загляните в кабинет, чтобы выполнить.`,
+      meta: { studentId },
+    });
   }
 
   async listMine(studentId: string) {
@@ -129,6 +142,7 @@ export class HomeworkService {
         .set({ status: 'RETURNED', reviewComment: dto.comment, reviewedAt: new Date(), reviewedByCuratorId: actor.id })
         .where(eq(homework.id, homeworkId))
         .returning();
+      await this.notifyReviewed(row.studentId, row.title, 'возвращено на доработку');
       return updated;
     }
 
@@ -137,7 +151,7 @@ export class HomeworkService {
     }
     if (dto.rubric) {
       const score = rubricToScore(dto.rubric);
-      await recalcSkill(this.db, row.studentId, 'SPEAKING', score, HOMEWORK_SPEAKING_WEIGHT, 'HOMEWORK');
+      await this.skillRecalc.recalcSkill(row.studentId, 'SPEAKING', score, HOMEWORK_SPEAKING_WEIGHT, 'HOMEWORK');
     }
 
     const [updated] = await this.db
@@ -151,7 +165,17 @@ export class HomeworkService {
       })
       .where(eq(homework.id, homeworkId))
       .returning();
+    await this.notifyReviewed(row.studentId, row.title, 'проверено');
     return updated;
+  }
+
+  private async notifyReviewed(studentId: string, title: string, statusLabel: string) {
+    const parentIds = await this.access.getActiveParentIds(studentId);
+    await this.events.emit('REVIEW_CREATED', [studentId, ...parentIds], {
+      title: 'Домашнее задание проверено',
+      body: `«${title}» — ${statusLabel}.`,
+      meta: { studentId },
+    });
   }
 
   private async loadOwnHomework(studentId: string, homeworkId: string) {

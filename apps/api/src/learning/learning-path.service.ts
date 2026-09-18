@@ -9,11 +9,14 @@ import { DB, Database } from '../db/db.module';
 import {
   Audience, courseModules, courses, lessonProgress, lessons, questionBank, Skill, studentProfiles, studentVocabulary,
 } from '../db/schema';
-import { recalcSkillAfterMiniTest } from './skill-recalc';
+import { SkillRecalcService } from './skill-recalc.service';
 
 @Injectable()
 export class LearningPathService {
-  constructor(@Inject(DB) private readonly db: Database) {}
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly skillRecalc: SkillRecalcService,
+  ) {}
 
   async getTodayPlan(userId: string) {
     const profile = await this.db.query.studentProfiles.findFirst({ where: eq(studentProfiles.userId, userId) });
@@ -120,7 +123,7 @@ export class LearningPathService {
     if (question.type === 'SPEAKING') throw new BadRequestException('Speaking questions are not auto-graded here');
 
     const isCorrect = gradeAnswer(question.type, question.content as Record<string, unknown>, answer) ?? false;
-    await recalcSkillAfterMiniTest(this.db, userId, question.skill, isCorrect);
+    await this.skillRecalc.recalcSkillAfterMiniTest(userId, question.skill, isCorrect);
 
     const content = question.content as Record<string, unknown>;
     return { isCorrect, explanation: (content.explanation as string | undefined) ?? null };

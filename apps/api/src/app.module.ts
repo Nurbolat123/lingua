@@ -15,6 +15,8 @@ import { DbModule } from './db/db.module';
 import { FamilyModule } from './family/family.module';
 import { HealthModule } from './health/health.module';
 import { LearningModule } from './learning/learning.module';
+import { SkillRecalcModule } from './learning/skill-recalc.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PlacementModule } from './placement/placement.module';
 import { UsersModule } from './users/users.module';
 
@@ -46,6 +48,8 @@ import { UsersModule } from './users/users.module';
     ContentModule,
     PlacementModule,
     LearningModule,
+    NotificationsModule,
+    SkillRecalcModule,
     HealthModule,
   ],
   providers: [

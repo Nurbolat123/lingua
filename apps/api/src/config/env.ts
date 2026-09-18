@@ -21,6 +21,20 @@ export const envSchema = z.object({
   // Приватный бакет для голосовых записей учеников (placement test, этап 3). Presigned GET
   // для прослушивания куратором и журнал доступа — этап 5.
   S3_BUCKET_SPEAKING: z.string().default('speaking'),
+
+  // Очередь уведомлений (этап 6)
+  REDIS_URL: z.string().default('redis://localhost:6379'),
+
+  // Email — необязательно; если не задано, канал email просто выключен (как MinIO выше)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM_EMAIL: z.string().default('noreply@soyleup.local'),
+  SMTP_FROM_NAME: z.string().default('SoyleUp'),
+
+  // Telegram-бот — необязательно; если не задано, канал telegram выключен
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

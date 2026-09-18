@@ -41,8 +41,10 @@ export class CuratorStudentsService {
       return {
         ...rest,
         assignedAt,
-        targetLevel: studentProfile?.targetLevel ?? null,
         englishProfile,
+        studentProfile: studentProfile
+          ? { isMinor: studentProfile.isMinor, targetLevel: studentProfile.targetLevel, dailyMinutes: studentProfile.dailyMinutes }
+          : null,
       };
     });
 
@@ -52,7 +54,7 @@ export class CuratorStudentsService {
     }
     if (filters.lowScore) {
       list = list.filter((s) => {
-        const target = TARGET_SCORE_BY_LEVEL[(s.targetLevel as keyof typeof TARGET_SCORE_BY_LEVEL) ?? 'B1'];
+        const target = TARGET_SCORE_BY_LEVEL[(s.studentProfile?.targetLevel as keyof typeof TARGET_SCORE_BY_LEVEL) ?? 'B1'];
         return s.englishProfile?.overall == null || s.englishProfile.overall < target;
       });
     }
@@ -107,7 +109,7 @@ export class CuratorStudentsService {
     await this.access.assertCanViewStudent(actor, studentId);
     const student = await this.db.query.users.findFirst({
       where: eq(users.id, studentId),
-      columns: { id: true, firstName: true, lastName: true, status: true, lastLoginAt: true, createdAt: true },
+      columns: { id: true, firstName: true, lastName: true, status: true, locale: true, lastLoginAt: true, createdAt: true },
       with: { studentProfile: true },
     });
     if (!student) throw new NotFoundException('Student not found');
@@ -120,7 +122,18 @@ export class CuratorStudentsService {
         })
       : null;
 
-    return { ...rest, studentProfile: studentProfile ?? null, englishProfile };
+    return {
+      ...rest,
+      englishProfile,
+      studentProfile: studentProfile
+        ? {
+            isMinor: studentProfile.isMinor, targetLevel: studentProfile.targetLevel, goal: studentProfile.goal,
+            dailyMinutes: studentProfile.dailyMinutes, grammarScore: studentProfile.grammarScore,
+            vocabularyScore: studentProfile.vocabularyScore, readingScore: studentProfile.readingScore,
+            listeningScore: studentProfile.listeningScore, speakingScore: studentProfile.speakingScore,
+          }
+        : null,
+    };
   }
 
   /** Последние неверные ответы в уроках — для раздела «ошибки» в карточке ученика */

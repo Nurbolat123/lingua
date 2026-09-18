@@ -94,11 +94,34 @@ export interface CuratorStudent {
   status: "ACTIVE" | "PENDING_CONSENT" | "BLOCKED";
   lastLoginAt: string | null;
   assignedAt: string;
+  englishProfile: EnglishProfile | null;
   studentProfile: {
     isMinor: boolean;
     targetLevel: CefrTarget | null;
     dailyMinutes: number;
-  };
+  } | null;
+}
+
+export interface CuratorStudentCard {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  status: "ACTIVE" | "PENDING_CONSENT" | "BLOCKED";
+  locale: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+  englishProfile: EnglishProfile | null;
+  studentProfile: {
+    isMinor: boolean;
+    targetLevel: CefrTarget | null;
+    goal: string | null;
+    dailyMinutes: number;
+    grammarScore: number | null;
+    vocabularyScore: number | null;
+    readingScore: number | null;
+    listeningScore: number | null;
+    speakingScore: number | null;
+  } | null;
 }
 
 export interface StudentSummary {
@@ -360,4 +383,72 @@ export interface LessonPlayerData {
 export interface CompleteBlockResult {
   status: LessonProgressStatus;
   currentBlockOrder: number;
+}
+
+// ── Домашние задания и куратор (Шаг 5) ──────────────────
+export type HomeworkStatus = "ASSIGNED" | "SUBMITTED" | "REVIEWED" | "RETURNED";
+
+export interface SpeakingRubric {
+  vocabulary: number;
+  grammar: number;
+  fluency: number;
+  pronunciation: number;
+}
+
+export interface IntegritySignals {
+  tabAwayCount: number;
+  fullscreenExitCount: number;
+  pasteDetected: boolean;
+}
+
+export interface Homework {
+  id: string;
+  studentId: string;
+  assignedByCuratorId: string | null;
+  lessonId: string | null;
+  lessonBlockId: string | null;
+  title: string;
+  instructions: string | null;
+  requiresIntegrityCheck: boolean;
+  dueAt: string | null;
+  status: HomeworkStatus;
+  submissionText: string | null;
+  submissionAudioKey: string | null;
+  submittedAt: string | null;
+  integritySignals: IntegritySignals | null;
+  rubric: SpeakingRubric | null;
+  reviewComment: string | null;
+  reviewedAt: string | null;
+  reviewedByCuratorId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewQueueItem {
+  type: "PLACEMENT" | "LESSON" | "HOMEWORK";
+  id: string;
+  studentId: string;
+  studentName: string;
+  title: string;
+  at: string | null;
+}
+
+export interface MistakeItem {
+  id: string;
+  answeredAt: string;
+  exerciseContent: Record<string, unknown>;
+  exerciseType: ExerciseType;
+  exerciseSkill: Skill | null;
+  lessonTitle: string;
+}
+
+export interface SpeakingRecordingsResponse {
+  lesson: { type: "LESSON"; id: string; at: string; reviewed: boolean; title: string }[];
+  placement: { type: "PLACEMENT"; id: string; at: string | null; reviewed: boolean }[];
+}
+
+export interface PlacementSpeakingRecording {
+  answerId: string;
+  prompt: string | null;
+  url: string;
 }

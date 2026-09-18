@@ -50,8 +50,11 @@ export default async function AdminPage({
   const curators = curatorsList.items;
 
   return (
-    <DashboardShell role="ADMIN" name={me.firstName}>
+    <DashboardShell role="ADMIN" name={me.firstName} wide>
       <div className="flex flex-col gap-6">
+        <Link href="/admin/content" className="text-sm font-semibold text-blue">
+          Контент (курсы, словарь, банк вопросов) →
+        </Link>
         <CreateStaffForm />
 
         <div className="rounded-2xl border border-line bg-card p-6">

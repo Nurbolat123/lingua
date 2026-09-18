@@ -12,10 +12,14 @@ const ROLE_LABEL: Record<string, string> = {
 export function DashboardShell({
   role,
   name,
+  title,
+  wide,
   children,
 }: {
   role: string;
   name: string;
+  title?: string;
+  wide?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -32,8 +36,8 @@ export function DashboardShell({
           <LogoutButton />
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-5 py-10 sm:px-10">
-        <h1 className="display text-[28px]">{ROLE_LABEL[role] ?? "Личный кабинет"}</h1>
+      <main className={`mx-auto px-5 py-10 sm:px-10 ${wide ? "max-w-6xl" : "max-w-3xl"}`}>
+        <h1 className="display text-[28px]">{title ?? ROLE_LABEL[role] ?? "Личный кабинет"}</h1>
         <div className="mt-6">{children}</div>
       </main>
     </div>

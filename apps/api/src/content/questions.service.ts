@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, SQL } from 'drizzle-orm';
+import { and, desc, eq, SQL } from 'drizzle-orm';
 import { parseCsv, splitMulti } from '../common/csv';
 import { QUESTION_LEVELS } from '../common/levels';
 import { definedOnly } from '../common/utils';
@@ -21,7 +21,7 @@ export class QuestionsService {
     const [items, total] = await Promise.all([
       this.db.query.questionBank.findMany({
         where,
-        orderBy: asc(questionBank.createdAt),
+        orderBy: desc(questionBank.createdAt),
         limit: q.pageSize,
         offset: (q.page - 1) * q.pageSize,
       }),

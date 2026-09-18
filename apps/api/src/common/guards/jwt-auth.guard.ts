@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { eq } from 'drizzle-orm';
 import { DB, Database } from '../../db/db.module';
 import { users } from '../../db/schema';
-import { ALLOW_PENDING, AuthUser, IS_PUBLIC } from '../auth.decorators';
+import { ALLOW_PENDING, AuthUser, IS_PUBLIC, OPTIONAL_AUTH } from '../auth.decorators';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -19,13 +19,18 @@ export class JwtAuthGuard implements CanActivate {
     if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, targets)) return true;
 
     const req = ctx.switchToHttp().getRequest();
+    const optional = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH, targets);
     const [scheme, token] = String(req.headers.authorization ?? '').split(' ');
-    if (scheme !== 'Bearer' || !token) throw new UnauthorizedException();
+    if (scheme !== 'Bearer' || !token) {
+      if (optional) return true;
+      throw new UnauthorizedException();
+    }
 
     let sub: string;
     try {
       ({ sub } = await this.jwt.verifyAsync<{ sub: string }>(token));
     } catch {
+      if (optional) return true;
       throw new UnauthorizedException();
     }
 
@@ -35,9 +40,16 @@ export class JwtAuthGuard implements CanActivate {
       where: eq(users.id, sub),
       columns: { id: true, role: true, status: true },
     });
-    if (!user || user.status === 'BLOCKED') throw new UnauthorizedException();
+    if (!user || user.status === 'BLOCKED') {
+      if (optional) return true;
+      throw new UnauthorizedException();
+    }
 
-    if (user.status === 'PENDING_CONSENT' && !this.reflector.getAllAndOverride<boolean>(ALLOW_PENDING, targets)) {
+    if (
+      user.status === 'PENDING_CONSENT' &&
+      !optional &&
+      !this.reflector.getAllAndOverride<boolean>(ALLOW_PENDING, targets)
+    ) {
       throw new ForbiddenException({ code: 'PARENT_CONSENT_REQUIRED', message: 'Parent consent is required' });
     }
 

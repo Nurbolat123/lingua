@@ -136,5 +136,46 @@ QID=$(req POST /admin/content/questions 201 "$ADMIN" '{"skill":"GRAMMAR","level"
 [[ $(req GET "/admin/content/questions?skill=GRAMMAR&level=B1" 200 "$ADMIN" | json total) -ge 1 ]]
 req DELETE /admin/content/questions/$QID 200 "$ADMIN" >/dev/null
 
+echo "▸ placement test: adaptive ladder & English Profile"
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"$SK\",\"level\":\"B1\",\"type\":\"MULTIPLE_CHOICE\",\"content\":{\"question\":\"$SK-$i-$RUN\",\"options\":[\"correct\",\"wrong\"],\"correctIndex\":0}}" >/dev/null
+  done
+done
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak $RUN\"}}" >/dev/null
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak $RUN 2\"}}" >/dev/null
+
+AID=$(req POST /placement/attempts 201 "" | json id)   # анонимно, без токена
+[[ $(req GET /placement/attempts/$AID 200 "" | json includeSpeaking) == false ]]   # анонимный тест — без Speaking
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    QID=$(req GET /placement/attempts/$AID/next-question 200 "" | json question.id)
+    req POST /placement/attempts/$AID/answers 201 "" "{\"questionId\":\"$QID\",\"answer\":0}" >/dev/null   # всегда верный ответ
+  done
+done
+R=$(req GET /placement/attempts/$AID 200 "")
+[[ $(echo "$R" | json status) == COMPLETED ]]
+[[ $(echo "$R" | json results.overall) -ge 85 ]]   # все ответы верные → лестница дошла до верхнего уровня
+req POST /placement/attempts/$AID/answers 400 "" '{"questionId":"00000000-0000-0000-0000-000000000000","answer":0}' >/dev/null   # попытка уже завершена
+
+echo "▸ placement: сохранение результата после регистрации (claim)"
+R=$(register STUDENT "place$RUN@t.kz" 2000-01-01)
+PTOKEN=$(echo "$R" | json accessToken); PID=$(echo "$R" | json user.id)
+req GET /placement/attempts/$AID 200 "$PTOKEN" >/dev/null   # анонимная попытка доступна по id
+req POST /placement/attempts/$AID/claim 201 "$PTOKEN" >/dev/null
+[[ $(req GET /users/me 200 "$PTOKEN" | json englishProfile.overall) -ge 85 ]]
+
+echo "▸ placement: Speaking доступен только с согласием и аккаунтом"
+[[ $(req POST /placement/attempts 201 "$PTOKEN" | json includeSpeaking) == false ]]   # согласия ещё нет
+req POST /users/me/consents 201 "$PTOKEN" '{"type":"VOICE_RECORDING"}' >/dev/null
+AID2=$(req POST /placement/attempts 201 "$PTOKEN" | json id)
+[[ $(req GET /placement/attempts/$AID2 200 "$PTOKEN" | json includeSpeaking) == true ]]
+req POST /placement/attempts/$AID2/speaking/presign 403 "" '{"fileName":"a.webm","contentType":"audio/webm"}' >/dev/null   # без токена нельзя
+
+echo "▸ placement: чужая привязанная попытка не видна"
+OTOKEN=$(register STUDENT "otherplace$RUN@t.kz" 2000-01-01 | json accessToken)
+req GET /placement/attempts/$AID2 404 "$OTOKEN" >/dev/null
+req GET /placement/attempts/$AID2 404 "" >/dev/null
+
 rm -f "$BODY"
 echo "✔ All smoke checks passed"

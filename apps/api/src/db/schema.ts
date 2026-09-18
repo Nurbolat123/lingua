@@ -52,6 +52,12 @@ export const studentProfiles = pgTable('student_profiles', {
   // Одноразовый код, который ученик передаёт родителю для привязки
   linkCode: text('link_code').unique(),
   linkCodeExpiresAt: ts('link_code_expires_at'),
+  // Текущий английский профиль (0–100), null пока навык не измерен. История — в skillSnapshots.
+  grammarScore: integer('grammar_score'),
+  vocabularyScore: integer('vocabulary_score'),
+  readingScore: integer('reading_score'),
+  listeningScore: integer('listening_score'),
+  speakingScore: integer('speaking_score'),
 });
 
 export const parentChildLinks = pgTable(
@@ -320,3 +326,69 @@ export type LessonBlock = typeof lessonBlocks.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type VocabularyWord = typeof vocabularyWords.$inferSelect;
 export type QuestionBankItem = typeof questionBank.$inferSelect;
+
+// ── Placement test (этап 3) ─────────────────────────────
+export const attemptStatusEnum = pgEnum('attempt_status', ['IN_PROGRESS', 'COMPLETED']);
+export const skillSnapshotSourceEnum = pgEnum('skill_snapshot_source', ['PLACEMENT', 'CONTROL_TEST', 'LESSON_MINI_TEST']);
+
+export const placementAttempts = pgTable(
+  'placement_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // null = анонимная попытка (тест с лендинга без регистрации); можно "забрать" при регистрации
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    status: attemptStatusEnum('status').notNull().default('IN_PROGRESS'),
+    includeSpeaking: boolean('include_speaking').notNull().default(false),
+    // Текущий навык лестницы: GRAMMAR → VOCABULARY → READING → LISTENING → (SPEAKING) → null (завершено)
+    currentSkill: skillEnum('current_skill').notNull().default('GRAMMAR'),
+    currentLevelIndex: integer('current_level_index').notNull().default(4), // индекс в QUESTION_LEVELS, старт — B1
+    // {GRAMMAR: {level, score}, VOCABULARY: {...}, ..., SPEAKING: {status: 'PENDING'|'REVIEWED', score?}}
+    results: jsonb('results'),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    completedAt: ts('completed_at'),
+  },
+  (t) => [index('placement_attempts_user_idx').on(t.userId)],
+);
+
+export const placementAnswers = pgTable(
+  'placement_answers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    attemptId: uuid('attempt_id').notNull().references(() => placementAttempts.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id').notNull().references(() => questionBank.id),
+    skill: skillEnum('skill').notNull(),
+    level: text('level').notNull(),
+    answer: jsonb('answer'), // ответ ученика; null для speaking (там audioKey)
+    audioKey: text('audio_key'), // ключ в приватном бакете speaking; presigned GET — на этапе 5 (проверка куратором)
+    isCorrect: boolean('is_correct'), // null для speaking — ожидает оценки куратором
+    answeredAt: ts('answered_at').notNull().defaultNow(),
+  },
+  (t) => [index('placement_answers_attempt_idx').on(t.attemptId)],
+);
+
+export const skillSnapshots = pgTable(
+  'skill_snapshots',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    skill: skillEnum('skill').notNull(),
+    score: integer('score').notNull(),
+    source: skillSnapshotSourceEnum('source').notNull(),
+    attemptId: uuid('attempt_id').references(() => placementAttempts.id, { onDelete: 'set null' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('skill_snapshots_user_idx').on(t.userId, t.skill, t.createdAt)],
+);
+
+export const placementAttemptsRelations = relations(placementAttempts, ({ many }) => ({
+  answers: many(placementAnswers),
+}));
+
+export const placementAnswersRelations = relations(placementAnswers, ({ one }) => ({
+  attempt: one(placementAttempts, { fields: [placementAnswers.attemptId], references: [placementAttempts.id] }),
+  question: one(questionBank, { fields: [placementAnswers.questionId], references: [questionBank.id] }),
+}));
+
+export type PlacementAttempt = typeof placementAttempts.$inferSelect;
+export type PlacementAnswer = typeof placementAnswers.$inferSelect;
+export type SkillSnapshot = typeof skillSnapshots.$inferSelect;

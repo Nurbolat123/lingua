@@ -11,14 +11,16 @@ export const envSchema = z.object({
   CONSENT_VERSION: z.string().min(1).default('2026-09-v1'),
 
   // S3/MinIO — учебные материалы (аудио, картинки). Публичный бакет: это не персональные
-  // данные, поэтому без presigned GET на чтение. Приватный бакет для записей речи учеников
-  // появится отдельно на этапе 3.
+  // данные, поэтому без presigned GET на чтение.
   S3_ENDPOINT: z.string().default('http://localhost:9000'),
   S3_REGION: z.string().default('us-east-1'),
   S3_ACCESS_KEY: z.string().default('lingua'),
   S3_SECRET_KEY: z.string().default('lingua-minio'),
   S3_BUCKET_CONTENT: z.string().default('content'),
   S3_PUBLIC_URL_BASE: z.string().default('http://localhost:9000/content'),
+  // Приватный бакет для голосовых записей учеников (placement test, этап 3). Presigned GET
+  // для прослушивания куратором и журнал доступа — этап 5.
+  S3_BUCKET_SPEAKING: z.string().default('speaking'),
 });
 
 export type Env = z.infer<typeof envSchema>;

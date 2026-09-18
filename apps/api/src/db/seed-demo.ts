@@ -111,6 +111,72 @@ const SPEAKING_B1: string[] = [
   'What advice would you give to someone starting their first job?',
 ];
 
+// Уровни A2 и B2 — чтобы полуадаптивная лестница могла реально двигаться вверх/вниз
+// при проверке Шага 3, а не оставаться на одном B1. По 5 вопросов на навык, тоже демо.
+const GRAMMAR_A2: { q: string; options: string[]; correct: number; explanation: string }[] = [
+  { q: 'She ___ to school every day.', options: ['go', 'goes', 'going', 'gone'], correct: 1, explanation: 'Present Simple, 3-е лицо ед. числа: -s.' },
+  { q: 'Yesterday, we ___ to the cinema.', options: ['go', 'goes', 'went', 'going'], correct: 2, explanation: 'Past Simple неправильного глагола go.' },
+  { q: 'There ___ a book on the table.', options: ['is', 'are', 'am', 'be'], correct: 0, explanation: 'There is + единственное число.' },
+  { q: 'He is ___ than his brother.', options: ['tall', 'taller', 'tallest', 'more tall'], correct: 1, explanation: 'Сравнительная степень короткого прилагательного: +er.' },
+  { q: 'I ___ TV every evening.', options: ['watch', 'watches', 'watching', 'watched'], correct: 0, explanation: 'Present Simple, 1-е лицо.' },
+];
+
+const GRAMMAR_B2: { q: string; options: string[]; correct: number; explanation: string }[] = [
+  { q: 'If she had studied harder, she ___ the exam.', options: ['would pass', 'would have passed', 'will pass', 'passes'], correct: 1, explanation: 'Third Conditional: if + Past Perfect, would have + participle.' },
+  { q: 'The bridge ___ in 1932.', options: ['built', 'was built', 'has built', 'building'], correct: 1, explanation: 'Passive Voice, Past Simple.' },
+  { q: 'He said that he ___ tired.', options: ['is', 'was', 'were', 'be'], correct: 1, explanation: 'Косвенная речь: согласование времён.' },
+  { q: 'Despite ___ hard, he failed.', options: ['work', 'working', 'worked', 'to work'], correct: 1, explanation: 'Despite + герундий.' },
+  { q: 'By next year, I ___ here for a decade.', options: ['will work', 'will have worked', 'work', 'worked'], correct: 1, explanation: 'Future Perfect для действия, завершённого к моменту в будущем.' },
+];
+
+const VOCAB_MC_A2: { q: string; options: string[]; correct: number; explanation: string }[] = [
+  { q: 'Choose the correct word: "I ___ breakfast at 7am."', options: ['have', 'has', 'having', 'had'], correct: 0, explanation: 'Present Simple, 1-е лицо.' },
+  { q: 'Choose the opposite of "big".', options: ['large', 'small', 'huge', 'tall'], correct: 1, explanation: '"Small" — противоположность "big".' },
+  { q: 'A place where you buy food is a ___.', options: ['school', 'shop', 'hospital', 'bank'], correct: 1, explanation: '"Shop" — место, где покупают еду.' },
+  { q: '"Yesterday" means ___.', options: ['tomorrow', 'today', 'the day before today', 'next week'], correct: 2, explanation: '"Yesterday" — день перед сегодняшним.' },
+  { q: 'Choose the correct word: "She is my ___ (father\'s sister)."', options: ['aunt', 'uncle', 'cousin', 'sister'], correct: 0, explanation: 'Сестра отца — "aunt".' },
+];
+
+const VOCAB_MC_B2: { q: string; options: string[]; correct: number; explanation: string }[] = [
+  { q: '"Reluctant" is closest in meaning to ___.', options: ['eager', 'unwilling', 'happy', 'certain'], correct: 1, explanation: 'Reluctant = unwilling, не желающий.' },
+  { q: 'Choose closest in meaning to "meticulous".', options: ['careless', 'careful and precise', 'fast', 'lazy'], correct: 1, explanation: 'Meticulous — очень внимательный к деталям.' },
+  { q: '"To postpone" means ___.', options: ['to cancel', 'to delay', 'to start', 'to finish'], correct: 1, explanation: 'Postpone = отложить.' },
+  { q: '"Ambiguous" is closest to ___.', options: ['clear', 'unclear, with more than one meaning', 'simple', 'correct'], correct: 1, explanation: 'Ambiguous — двусмысленный.' },
+  { q: 'Choose the correct collocation: "make a ___."', options: ['homework', 'decision', 'housework', 'cook'], correct: 1, explanation: '"Make a decision" — устойчивое сочетание.' },
+];
+
+const READING_A2: { passage: string; q: string; options: string[]; correct: number }[] = [
+  { passage: 'Tom has a dog. The dog is brown and small. Tom walks the dog every morning.', q: 'What colour is the dog?', options: ['Black', 'Brown', 'White', 'Grey'], correct: 1 },
+  { passage: 'Maria likes pizza. She eats it every Friday with her family.', q: 'When does Maria eat pizza?', options: ['Monday', 'Friday', 'Sunday', 'Saturday'], correct: 1 },
+  { passage: 'The shop opens at 9am and closes at 6pm.', q: 'What time does the shop close?', options: ['9am', '12pm', '6pm', '8pm'], correct: 2 },
+  { passage: 'John is a teacher. He teaches math at a school in London.', q: 'What does John teach?', options: ['English', 'Math', 'Science', 'Art'], correct: 1 },
+  { passage: 'It is raining today, so Anna takes her umbrella.', q: 'Why does Anna take her umbrella?', options: ["It's sunny", "It's raining", "It's cold", "It's windy"], correct: 1 },
+];
+
+const READING_B2: { passage: string; q: string; options: string[]; correct: number }[] = [
+  { passage: 'Despite the initial scepticism from investors, the startup managed to secure funding after presenting a compelling business plan.', q: 'How did the startup secure funding?', options: ['By ignoring investors', 'By presenting a compelling plan', 'By reducing costs', 'By merging with another company'], correct: 1 },
+  { passage: 'The committee postponed the decision, citing the need for further research before implementation.', q: 'Why was the decision postponed?', options: ['Lack of funding', 'Need for more research', 'Committee disagreement', 'Legal issues'], correct: 1 },
+  { passage: 'Although the novel received mixed reviews upon release, it has since become regarded as a modern classic.', q: 'How is the novel regarded now?', options: ['Poorly', 'As a modern classic', 'As forgotten', 'As controversial'], correct: 1 },
+  { passage: "The company's quarterly earnings exceeded analysts' expectations, causing its stock price to surge.", q: 'What happened to the stock price?', options: ['It fell', 'It stayed the same', 'It surged', 'It was suspended'], correct: 2 },
+  { passage: 'Critics argue that the policy, while well-intentioned, fails to address the root causes of the problem.', q: 'What do critics say about the policy?', options: ["It's perfect", "It's well-intentioned but doesn't fix root causes", "It's poorly designed", "It's too expensive"], correct: 1 },
+];
+
+const LISTENING_A2: { transcript: string; q: string; options: string[]; correct: number }[] = [
+  { transcript: 'Hi, my name is Peter. I am from Canada. I like playing football.', q: 'Where is Peter from?', options: ['USA', 'Canada', 'UK', 'France'], correct: 1 },
+  { transcript: 'The train leaves at 10 o\'clock from platform 2.', q: 'What platform does the train leave from?', options: ['1', '2', '3', '4'], correct: 1 },
+  { transcript: 'I usually wake up at seven and have breakfast at half past seven.', q: 'What time does the speaker wake up?', options: ['6', '7', '7:30', '8'], correct: 1 },
+  { transcript: "Can you close the window, please? It's cold in here.", q: 'What does the speaker want?', options: ['Open window', 'Close window', 'Turn on heat', 'Leave'], correct: 1 },
+  { transcript: 'My sister is a doctor and my brother is an engineer.', q: "What is the speaker's brother?", options: ['Doctor', 'Engineer', 'Teacher', 'Nurse'], correct: 1 },
+];
+
+const LISTENING_B2: { transcript: string; q: string; options: string[]; correct: number }[] = [
+  { transcript: 'Unfortunately, due to unforeseen circumstances, the conference has been rescheduled to next month.', q: 'What happened to the conference?', options: ['Cancelled', 'Rescheduled', 'Extended', 'Moved online'], correct: 1 },
+  { transcript: "I'd like to bring up a point that hasn't been addressed yet in our discussion.", q: 'What does the speaker want to do?', options: ['End the discussion', 'Raise a new point', 'Agree with everyone', 'Leave the meeting'], correct: 1 },
+  { transcript: 'The proposal has significant merit, but we need to consider the budget implications more carefully.', q: 'What concern does the speaker raise?', options: ['The idea is bad', 'Budget implications', 'Timing', 'Staff availability'], correct: 1 },
+  { transcript: 'On reflection, I think we should have consulted the team before making that decision.', q: 'What does the speaker regret?', options: ['Not consulting the team', 'Making the decision too slowly', 'Consulting too many people', 'Nothing'], correct: 0 },
+  { transcript: 'The results were inconclusive, so further research is warranted before drawing any firm conclusions.', q: 'What does the speaker suggest?', options: ['Stop research', 'Further research is needed', 'The results are final', 'Nothing more to do'], correct: 1 },
+];
+
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const db = drizzle(pool);
@@ -228,23 +294,55 @@ async function main() {
     isDemo: true,
   })));
 
-  console.log('Заполняю банк вопросов (50 штук, уровень B1)…');
+  console.log('Заполняю банк вопросов (90 штук, уровни A2/B1/B2)…');
   await db.insert(questionBank).values([
+    ...GRAMMAR_A2.map((item, i) => ({
+      skill: 'GRAMMAR' as const, level: 'A2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
+      content: { question: item.q, options: item.options, correctIndex: item.correct, explanation: item.explanation }, isDemo: true,
+    })),
     ...GRAMMAR_B1.map((item, i) => ({
       skill: 'GRAMMAR' as const, level: 'B1', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
+      content: { question: item.q, options: item.options, correctIndex: item.correct, explanation: item.explanation }, isDemo: true,
+    })),
+    ...GRAMMAR_B2.map((item, i) => ({
+      skill: 'GRAMMAR' as const, level: 'B2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
+      content: { question: item.q, options: item.options, correctIndex: item.correct, explanation: item.explanation }, isDemo: true,
+    })),
+    ...VOCAB_MC_A2.map((item, i) => ({
+      skill: 'VOCABULARY' as const, level: 'A2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
       content: { question: item.q, options: item.options, correctIndex: item.correct, explanation: item.explanation }, isDemo: true,
     })),
     ...VOCAB_MC_B1.map((item, i) => ({
       skill: 'VOCABULARY' as const, level: 'B1', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
       content: { question: item.q, options: item.options, correctIndex: item.correct, explanation: item.explanation }, isDemo: true,
     })),
+    ...VOCAB_MC_B2.map((item, i) => ({
+      skill: 'VOCABULARY' as const, level: 'B2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
+      content: { question: item.q, options: item.options, correctIndex: item.correct, explanation: item.explanation }, isDemo: true,
+    })),
+    ...READING_A2.map((item, i) => ({
+      skill: 'READING' as const, level: 'A2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
+      content: { passage: item.passage, question: item.q, options: item.options, correctIndex: item.correct }, isDemo: true,
+    })),
     ...READING_B1.map((item, i) => ({
       skill: 'READING' as const, level: 'B1', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
       content: { passage: item.passage, question: item.q, options: item.options, correctIndex: item.correct }, isDemo: true,
     })),
+    ...READING_B2.map((item, i) => ({
+      skill: 'READING' as const, level: 'B2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
+      content: { passage: item.passage, question: item.q, options: item.options, correctIndex: item.correct }, isDemo: true,
+    })),
+    ...LISTENING_A2.map((item, i) => ({
+      skill: 'LISTENING' as const, level: 'A2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
+      content: { transcript: item.transcript, question: item.q, options: item.options, correctIndex: item.correct }, isDemo: true,
+    })),
     ...LISTENING_B1.map((item, i) => ({
       skill: 'LISTENING' as const, level: 'B1', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
       // audioUrl не заполнен — в демо-сиде нет учебного аудио, только транскрипт текстом
+      content: { transcript: item.transcript, question: item.q, options: item.options, correctIndex: item.correct }, isDemo: true,
+    })),
+    ...LISTENING_B2.map((item, i) => ({
+      skill: 'LISTENING' as const, level: 'B2', difficulty: (i % 5) + 1, type: 'MULTIPLE_CHOICE' as const,
       content: { transcript: item.transcript, question: item.q, options: item.options, correctIndex: item.correct }, isDemo: true,
     })),
     ...SPEAKING_B1.map((prompt, i) => ({
@@ -254,7 +352,7 @@ async function main() {
   ]);
 
   await pool.end();
-  console.log('Демо-контент готов: 1 курс, 1 модуль, 2 урока, 30 слов, 50 вопросов (B1).');
+  console.log('Демо-контент готов: 1 курс, 1 модуль, 2 урока, 30 слов, 90 вопросов (A2/B1/B2).');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

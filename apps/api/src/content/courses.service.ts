@@ -1,46 +1,15 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, SQL } from 'drizzle-orm';
+import { stripAnswer } from '../common/exerciseContent';
 import { definedOnly } from '../common/utils';
 import { DB, Database } from '../db/db.module';
 import {
-  courses, courseModules, Exercise, ExerciseType, exercises, lessonBlocks, lessons,
+  courses, courseModules, Exercise, exercises, lessonBlocks, lessons,
 } from '../db/schema';
 import {
   CreateCourseDto, CreateExerciseDto, CreateLessonBlockDto, CreateLessonDto, CreateModuleDto,
   ListCoursesQueryDto, UpdateCourseDto, UpdateExerciseDto, UpdateLessonBlockDto, UpdateLessonDto, UpdateModuleDto,
 } from './dto/courses.dto';
-
-/** Убирает правильный ответ из содержимого упражнения — для просмотра «глазами ученика». */
-function stripAnswer(type: ExerciseType, content: Record<string, unknown>): Record<string, unknown> {
-  switch (type) {
-    case 'MULTIPLE_CHOICE': {
-      const { correctIndex: _c, explanation: _e, ...rest } = content;
-      return rest;
-    }
-    case 'FILL_BLANK': {
-      const { answers: _a, ...rest } = content;
-      return rest;
-    }
-    case 'MATCHING': {
-      const pairs = (content.pairs as { left: string; right: string }[] | undefined) ?? [];
-      return { left: pairs.map((p) => p.left), right: pairs.map((p) => p.right) };
-    }
-    case 'ORDERING': {
-      const { correctOrder: _o, ...rest } = content;
-      return rest;
-    }
-    case 'FREE_RESPONSE': {
-      const { sampleAnswer: _s, rubric: _r, ...rest } = content;
-      return rest;
-    }
-    case 'SPEAKING': {
-      const { rubric: _r2, ...rest } = content;
-      return rest;
-    }
-    default:
-      return content;
-  }
-}
 
 @Injectable()
 export class CoursesService {

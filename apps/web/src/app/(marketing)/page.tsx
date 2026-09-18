@@ -53,7 +53,7 @@ export default function LandingPage() {
             <Link className={styles.loginLink} href="/login">
               Войти
             </Link>
-            <Link className={`${styles.btn} ${styles.btnDark}`} href="/register">
+            <Link className={`${styles.btn} ${styles.btnDark}`} href="/test">
               Начать бесплатно
             </Link>
           </div>
@@ -73,7 +73,7 @@ export default function LandingPage() {
                 проверяет задания. Прогресс видно ученику и родителям.
               </p>
               <div className={styles.heroActions}>
-                <Link className={`${styles.btn} ${styles.btnPrimary}`} href="/register">
+                <Link className={`${styles.btn} ${styles.btnPrimary}`} href="/test">
                   Начать бесплатно
                   <svg
                     width="20"
@@ -409,8 +409,8 @@ export default function LandingPage() {
                   <li>English Profile с разбором</li>
                   <li>Рекомендации, с чего начать</li>
                 </ul>
-                <Link className={`${styles.btn} ${styles.btnOutline}`} href="/register">
-                  Зарегистрироваться
+                <Link className={`${styles.btn} ${styles.btnOutline}`} href="/test">
+                  Пройти тест
                 </Link>
               </div>
               <div className={`${styles.card} ${styles.plan}`}>

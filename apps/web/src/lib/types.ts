@@ -22,10 +22,29 @@ export interface StudentProfile {
   targetLevel: CefrTarget | null;
   goal: string | null;
   dailyMinutes: number;
+  grammarScore: number | null;
+  vocabularyScore: number | null;
+  readingScore: number | null;
+  listeningScore: number | null;
+  speakingScore: number | null;
+}
+
+export interface EnglishProfileSkill {
+  score: number;
+  level: QuestionLevel;
+}
+
+export interface EnglishProfile {
+  overall: number | null;
+  overallLevel: QuestionLevel | null;
+  strongest: Skill | null;
+  weakest: Skill | null;
+  skills: Record<Skill, EnglishProfileSkill | null>;
 }
 
 export interface MeResponse extends PublicUser {
   studentProfile: StudentProfile | null;
+  englishProfile: EnglishProfile | null;
   activeConsents: { type: string; version: string; grantedAt: string }[];
   requiresParentConsent: boolean;
 }
@@ -200,4 +219,62 @@ export interface QuestionListResponse {
   total: number;
   page: number;
   pageSize: number;
+}
+
+// ── Placement-тест (Шаг 3) ─────────────────────────────────────
+export type PlacementStatus = "IN_PROGRESS" | "COMPLETED";
+
+export interface PlacementSkillResult {
+  level: QuestionLevel;
+  score: number;
+}
+
+export type PlacementResults = Partial<Record<Skill, PlacementSkillResult | { status: "PENDING" }>> & {
+  overall?: number;
+  strongest?: Skill;
+  weakest?: Skill;
+};
+
+export interface PlacementAttemptState {
+  id: string;
+  status: PlacementStatus;
+  includeSpeaking: boolean;
+  currentSkill: Skill | null;
+  results: PlacementResults | null;
+}
+
+export interface PlacementProgress {
+  skill: Skill;
+  answered: number;
+  total: number;
+  skillIndex: number;
+  totalSkills: number;
+}
+
+export interface PlacementQuestion {
+  id: string;
+  type: ExerciseType;
+  content: Record<string, unknown>;
+}
+
+export interface PlacementNextQuestion {
+  completed: boolean;
+  question?: PlacementQuestion;
+  skill?: Skill;
+  level?: QuestionLevel;
+  progress?: PlacementProgress;
+}
+
+export interface PlacementAnswerResult {
+  skillCompleted: boolean;
+  attemptCompleted: boolean;
+  nextSkill?: Skill;
+  progress?: PlacementProgress;
+  results?: PlacementResults;
+}
+
+export interface PlacementPresign {
+  uploadUrl: string;
+  key: string;
+  expiresIn: number;
 }

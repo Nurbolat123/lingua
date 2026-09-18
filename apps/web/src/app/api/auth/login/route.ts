@@ -3,7 +3,7 @@ import { API_URL } from "@/lib/config";
 import { setSessionCookies } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  const { attemptId, ...body } = await request.json();
   const apiRes = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -19,6 +19,15 @@ export async function POST(request: NextRequest) {
     refreshToken: data.refreshToken,
     expiresIn: data.expiresIn,
   });
+
+  if (attemptId) {
+    // Сохраняем результат теста прямо здесь свежим токеном — cookie ещё может быть
+    // не применена браузером к следующему запросу, если делать это отдельным вызовом.
+    await fetch(`${API_URL}/placement/attempts/${attemptId}/claim`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${data.accessToken}` },
+    }).catch(() => undefined);
+  }
 
   return NextResponse.json({ user: data.user, requiresParentConsent: data.requiresParentConsent });
 }

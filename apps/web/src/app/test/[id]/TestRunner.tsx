@@ -27,6 +27,13 @@ export function TestRunner({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startedAt] = useState(() => Date.now());
+  const [elapsedSec, setElapsedSec] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setElapsedSec(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
 
   const applyNext = useCallback(
     (res: PlacementNextQuestion | null) => {
@@ -88,6 +95,8 @@ export function TestRunner({
   const totalSkills = progress?.totalSkills ?? (initialState.includeSpeaking ? 5 : 4);
   const skillIndexForBar = !progress ? 0 : progress.skill === "SPEAKING" ? totalSkills - 1 : progress.skillIndex;
   const fraction = progress ? (skillIndexForBar + progress.answered / progress.total) / totalSkills : 0;
+  const minutes = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+  const seconds = String(elapsedSec % 60).padStart(2, "0");
 
   return (
     <main className="min-h-screen bg-paper px-5 py-10">
@@ -95,17 +104,22 @@ export function TestRunner({
         <div>
           <div className="flex items-center justify-between text-[14px] font-semibold text-muted">
             <span>{progress ? SKILL_LABELS[progress.skill] : "Загрузка…"}</span>
-            {progress && progress.skill === "SPEAKING" ? (
-              <span>
-                Вопрос {progress.answered + 1} / {progress.total}
+            <div className="flex items-center gap-4">
+              <span className="tabular-nums text-muted">
+                {minutes}:{seconds}
               </span>
-            ) : (
-              progress && (
+              {progress && progress.skill === "SPEAKING" ? (
                 <span>
-                  {skillIndexForBar + 1} / {totalSkills}
+                  Вопрос {progress.answered + 1} / {progress.total}
                 </span>
-              )
-            )}
+              ) : (
+                progress && (
+                  <span>
+                    {skillIndexForBar + 1} / {totalSkills}
+                  </span>
+                )
+              )}
+            </div>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-paper-2">
             <span

@@ -77,7 +77,7 @@ Web: админка контента — конструктор курса и у
 
 ---
 
-## [ ] Шаг 3. Placement test и English Profile
+## [x] Шаг 3. Placement test и English Profile
 
 ```
 Шаг 3 из ROADMAP. Сделай вступительный тест по правилам «Тесты и оценки» и «Продуктовые решения» в CLAUDE.md.

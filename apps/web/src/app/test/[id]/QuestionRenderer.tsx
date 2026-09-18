@@ -30,11 +30,16 @@ type PartProps = { content: Record<string, unknown>; submitting: boolean; onSubm
 
 function MultipleChoice({ content, submitting, onSubmit }: PartProps) {
   const [selected, setSelected] = useState<number | null>(null);
-  const passage = (content.passage as string | undefined) ?? (content.transcript as string | undefined);
+  const audioUrl = content.audioUrl as string | undefined;
+  const transcript = content.transcript as string | undefined;
+  // Пассаж для Reading всегда показываем; транскрипт Listening — только если нет аудио
+  // (иначе это уже не аудирование, а чтение того же текста).
+  const passage = (content.passage as string | undefined) ?? (audioUrl ? undefined : transcript);
   const options = (content.options as string[] | undefined) ?? [];
 
   return (
     <div className="flex flex-col gap-5">
+      {audioUrl && <audio controls src={audioUrl} className="w-full" />}
       {passage && <p className="rounded-2xl bg-paper-2 p-4 text-[15px] leading-relaxed">{passage}</p>}
       <p className="text-[18px] font-semibold">{String(content.question ?? "")}</p>
       <div className="flex flex-col gap-2">

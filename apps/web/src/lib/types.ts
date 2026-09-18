@@ -1,11 +1,14 @@
 export type CefrTarget = "A1" | "A2" | "B1" | "B2" | "C1";
 
+export type Role = "STUDENT" | "PARENT" | "CURATOR" | "ADMIN";
+export type UserStatus = "ACTIVE" | "PENDING_CONSENT" | "BLOCKED";
+
 export interface PublicUser {
   id: string;
   email: string;
   phone: string | null;
-  role: "STUDENT" | "PARENT" | "CURATOR" | "ADMIN";
-  status: "ACTIVE" | "PENDING_CONSENT" | "BLOCKED";
+  role: Role;
+  status: UserStatus;
   firstName: string;
   lastName: string | null;
   locale: string;
@@ -85,4 +88,11 @@ export interface StudentSummary {
     dailyMinutes: number;
   };
   curator: { id: string; firstName: string; lastName: string | null; assignedAt: string } | null;
+}
+
+export interface UserListResponse {
+  items: PublicUser[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

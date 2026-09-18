@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthUser, CurrentUser, OptionalAuth } from '../common/auth.decorators';
 import { AttemptIdParamDto, PresignSpeakingDto, SubmitAnswerDto, SubmitSpeakingDto } from './dto/placement.dto';
 import { PlacementService } from './placement.service';
-import { SpeakingStorageService } from './speaking-storage.service';
+import { SpeakingStorageService } from '../common/speaking-storage.service';
 
 @ApiTags('placement')
 @ApiBearerAuth()

@@ -22,6 +22,20 @@
       "when": 1789719683355,
       "tag": "0002_goofy_siren",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789736371385,
+      "tag": "0003_acoustic_risque",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789736548347,
+      "tag": "0004_futuristic_colossus",
+      "breakpoints": true
     }
   ]
 }

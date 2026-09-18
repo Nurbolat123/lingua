@@ -249,7 +249,7 @@ async function main() {
     lessonId: lesson1.id, type: 'MINI_TEST', order: 6, title: 'Мини-тест',
   }).returning())[0];
   await db.insert(exercises).values({
-    lessonBlockId: miniTestBlock.id, type: 'MULTIPLE_CHOICE', order: 0,
+    lessonBlockId: miniTestBlock.id, type: 'MULTIPLE_CHOICE', order: 0, skill: 'VOCABULARY',
     content: { question: VOCAB_MC_B1[2].q, options: VOCAB_MC_B1[2].options, correctIndex: VOCAB_MC_B1[2].correct, explanation: VOCAB_MC_B1[2].explanation },
   });
 
@@ -278,7 +278,7 @@ async function main() {
     lessonId: lesson2.id, type: 'MINI_TEST', order: 2, title: 'Мини-тест',
   }).returning())[0];
   await db.insert(exercises).values({
-    lessonBlockId: lesson2MiniTest.id, type: 'MULTIPLE_CHOICE', order: 0,
+    lessonBlockId: lesson2MiniTest.id, type: 'MULTIPLE_CHOICE', order: 0, skill: 'VOCABULARY',
     content: { question: VOCAB_MC_B1[4].q, options: VOCAB_MC_B1[4].options, correctIndex: VOCAB_MC_B1[4].correct, explanation: VOCAB_MC_B1[4].explanation },
   });
   void lesson2VocabBlock; void introBlock; void vocabBlock; void grammarBlock; void readingBlock;

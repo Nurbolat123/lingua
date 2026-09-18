@@ -55,3 +55,33 @@ export function buildEnglishProfile(scores: Record<SkillName, number | null>): E
   const weakest = measured.reduce((a, b) => (skills[a]!.score <= skills[b]!.score ? a : b));
   return { overall, overallLevel: scoreToLevel(overall), strongest, weakest, skills };
 }
+
+/** Целевой балл для уровня цели ученика — ориентир при расчёте плана на день. */
+export const TARGET_SCORE_BY_LEVEL: Record<CourseLevel, number> = {
+  A1: 20, A2: 40, B1: 60, B2: 80, C1: 95,
+};
+
+/** Пересчёт навыка по правилу из CLAUDE.md: new = old × (1 − w) + result × w. */
+export function recalcSkillScore(oldScore: number | null, result: number, weight: number): number {
+  const base = oldScore ?? result;
+  return Math.round(Math.max(0, Math.min(100, base * (1 - weight) + result * weight)));
+}
+
+/**
+ * Навыки, отсортированные по отставанию от цели (для плана на день берутся первые три).
+ * Неизмеренный навык считается максимально приоритетным.
+ */
+export function priorityLearningPath(
+  scores: Record<SkillName, number | null>,
+  targetLevel: CourseLevel | null,
+): SkillName[] {
+  const targetScore = TARGET_SCORE_BY_LEVEL[targetLevel ?? 'B1'];
+  return [...SKILLS]
+    .map((skill) => {
+      const score = scores[skill];
+      const gap = score == null ? targetScore + 100 : targetScore - score;
+      return { skill, gap };
+    })
+    .sort((a, b) => b.gap - a.gap)
+    .map((g) => g.skill);
+}

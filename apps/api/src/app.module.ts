@@ -14,6 +14,7 @@ import { CuratorModule } from './curator/curator.module';
 import { DbModule } from './db/db.module';
 import { FamilyModule } from './family/family.module';
 import { HealthModule } from './health/health.module';
+import { LearningModule } from './learning/learning.module';
 import { PlacementModule } from './placement/placement.module';
 import { UsersModule } from './users/users.module';
 
@@ -44,6 +45,7 @@ import { UsersModule } from './users/users.module';
     CuratorModule,
     ContentModule,
     PlacementModule,
+    LearningModule,
     HealthModule,
   ],
   providers: [

@@ -1,4 +1,7 @@
-import { IsDefined, IsIn, IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsDefined, IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { PresignSpeakingDto } from '../../common/dto/presign-speaking.dto';
+
+export { PresignSpeakingDto };
 
 export class AttemptIdParamDto {
   @IsUUID()
@@ -24,11 +27,3 @@ export class SubmitSpeakingDto {
   audioKey: string;
 }
 
-export class PresignSpeakingDto {
-  @IsString()
-  @IsNotEmpty()
-  fileName: string;
-
-  @IsIn(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav'])
-  contentType: string;
-}

@@ -49,6 +49,8 @@ export const studentProfiles = pgTable('student_profiles', {
   targetLevel: text('target_level'),
   goal: text('goal'),
   dailyMinutes: integer('daily_minutes').notNull().default(20),
+  // Назначенный курс (этап 4) — подбирается автоматически по уровню/возрасту, куратор может сменить.
+  courseId: uuid('course_id').references(() => courses.id, { onDelete: 'set null' }),
   // Одноразовый код, который ученик передаёт родителю для привязки
   linkCode: text('link_code').unique(),
   linkCodeExpiresAt: ts('link_code_expires_at'),
@@ -158,6 +160,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 
 export const studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
   user: one(users, { fields: [studentProfiles.userId], references: [users.id] }),
+  course: one(courses, { fields: [studentProfiles.courseId], references: [courses.id] }),
 }));
 
 export const parentChildLinksRelations = relations(parentChildLinks, ({ one }) => ({
@@ -254,6 +257,9 @@ export const exercises = pgTable(
     order: integer('order').notNull().default(0),
     // Вопрос, варианты, правильный ответ — вместе; при отдаче студенту ответ вырезается на сервере
     content: jsonb('content').notNull(),
+    // Какой навык проверяет упражнение (этап 4) — используется для пересчёта баллов после мини-теста
+    // урока (вес 0.1). Необязательное: у INTRO/HOMEWORK и т.п. упражнений без проверки не задаётся.
+    skill: skillEnum('skill'),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [index('exercises_block_idx').on(t.lessonBlockId, t.order)],
@@ -392,3 +398,83 @@ export const placementAnswersRelations = relations(placementAnswers, ({ one }) =
 export type PlacementAttempt = typeof placementAttempts.$inferSelect;
 export type PlacementAnswer = typeof placementAnswers.$inferSelect;
 export type SkillSnapshot = typeof skillSnapshots.$inferSelect;
+
+// ── Обучение (этап 4) ────────────────────────────────────
+export const lessonProgressStatusEnum = pgEnum('lesson_progress_status', ['IN_PROGRESS', 'COMPLETED']);
+
+export const lessonProgress = pgTable(
+  'lesson_progress',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    lessonId: uuid('lesson_id').notNull().references(() => lessons.id, { onDelete: 'cascade' }),
+    status: lessonProgressStatusEnum('status').notNull().default('IN_PROGRESS'),
+    // Порядок блока (lessonBlocks.order), на котором ученик остановился — чтобы продолжить урок с того же места.
+    currentBlockOrder: integer('current_block_order').notNull().default(0),
+    activeSeconds: integer('active_seconds').notNull().default(0),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    completedAt: ts('completed_at'),
+  },
+  (t) => [
+    uniqueIndex('lesson_progress_user_lesson_uq').on(t.userId, t.lessonId),
+    index('lesson_progress_user_idx').on(t.userId),
+  ],
+);
+
+export const lessonExerciseAnswers = pgTable(
+  'lesson_exercise_answers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    progressId: uuid('progress_id').notNull().references(() => lessonProgress.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id').notNull().references(() => exercises.id, { onDelete: 'cascade' }),
+    answer: jsonb('answer'),
+    audioKey: text('audio_key'), // ключ в приватном бакете speaking, для SPEAKING-упражнений
+    isCorrect: boolean('is_correct'), // null — не проверяется автоматически (FREE_RESPONSE, SPEAKING)
+    answeredAt: ts('answered_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('lesson_exercise_answers_progress_exercise_uq').on(t.progressId, t.exerciseId),
+    index('lesson_exercise_answers_progress_idx').on(t.progressId),
+  ],
+);
+
+// Интервальное повторение слов (SM-2). Интерфейс повторения — простой (этап 4), поля закладываются сразу.
+export const studentVocabulary = pgTable(
+  'student_vocabulary',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    wordId: uuid('word_id').notNull().references(() => vocabularyWords.id, { onDelete: 'cascade' }),
+    repetition: integer('repetition').notNull().default(0),
+    // Ease factor ×100 (SM-2 обычно 1.3–2.5+) — целое число, чтобы не заводить numeric-тип в схеме.
+    easeFactor: integer('ease_factor').notNull().default(250),
+    intervalDays: integer('interval_days').notNull().default(0),
+    dueAt: ts('due_at').notNull().defaultNow(),
+    lastReviewedAt: ts('last_reviewed_at'),
+    addedAt: ts('added_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('student_vocabulary_user_word_uq').on(t.userId, t.wordId),
+    index('student_vocabulary_due_idx').on(t.userId, t.dueAt),
+  ],
+);
+
+export const lessonProgressRelations = relations(lessonProgress, ({ one, many }) => ({
+  user: one(users, { fields: [lessonProgress.userId], references: [users.id] }),
+  lesson: one(lessons, { fields: [lessonProgress.lessonId], references: [lessons.id] }),
+  answers: many(lessonExerciseAnswers),
+}));
+
+export const lessonExerciseAnswersRelations = relations(lessonExerciseAnswers, ({ one }) => ({
+  progress: one(lessonProgress, { fields: [lessonExerciseAnswers.progressId], references: [lessonProgress.id] }),
+  exercise: one(exercises, { fields: [lessonExerciseAnswers.exerciseId], references: [exercises.id] }),
+}));
+
+export const studentVocabularyRelations = relations(studentVocabulary, ({ one }) => ({
+  user: one(users, { fields: [studentVocabulary.userId], references: [users.id] }),
+  word: one(vocabularyWords, { fields: [studentVocabulary.wordId], references: [vocabularyWords.id] }),
+}));
+
+export type LessonProgress = typeof lessonProgress.$inferSelect;
+export type LessonExerciseAnswer = typeof lessonExerciseAnswers.$inferSelect;
+export type StudentVocabulary = typeof studentVocabulary.$inferSelect;

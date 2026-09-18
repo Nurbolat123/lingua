@@ -3,7 +3,7 @@ import {
   IsBoolean, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min,
 } from 'class-validator';
 import { COURSE_LEVELS } from '../../common/levels';
-import { audienceEnum, exerciseTypeEnum, lessonBlockTypeEnum } from '../../db/schema';
+import { audienceEnum, exerciseTypeEnum, lessonBlockTypeEnum, skillEnum } from '../../db/schema';
 
 // ── Курс ─────────────────────────────────────────────────
 export class CreateCourseDto {
@@ -141,6 +141,10 @@ export class CreateExerciseDto {
 
   @IsObject()
   content: Record<string, unknown>;
+
+  /** Какой навык проверяет упражнение — используется для пересчёта баллов после мини-теста урока. */
+  @IsOptional() @IsIn(skillEnum.enumValues)
+  skill?: (typeof skillEnum.enumValues)[number];
 }
 
 export class UpdateExerciseDto {
@@ -152,4 +156,7 @@ export class UpdateExerciseDto {
 
   @IsOptional() @IsObject()
   content?: Record<string, unknown>;
+
+  @IsOptional() @IsIn(skillEnum.enumValues)
+  skill?: (typeof skillEnum.enumValues)[number];
 }

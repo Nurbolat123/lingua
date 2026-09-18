@@ -177,5 +177,44 @@ OTOKEN=$(register STUDENT "otherplace$RUN@t.kz" 2000-01-01 | json accessToken)
 req GET /placement/attempts/$AID2 404 "$OTOKEN" >/dev/null
 req GET /placement/attempts/$AID2 404 "" >/dev/null
 
+echo "▸ learning: план дня, урок, повторение слов"
+req PATCH /users/me 200 "$PTOKEN" '{"targetLevel":"B2"}' >/dev/null
+
+CID=$(req POST /admin/content/courses 201 "$ADMIN" '{"title":"Learning smoke course","level":"B1","audience":"ADULTS"}' | json id)
+MID=$(req POST /admin/content/courses/$CID/modules 201 "$ADMIN" '{"title":"M1"}' | json id)
+LID=$(req POST /admin/content/modules/$MID/lessons 201 "$ADMIN" '{"title":"L1"}' | json id)
+req POST /admin/content/vocabulary 201 "$ADMIN" "{\"word\":\"smokeword-$RUN\",\"translationRu\":\"тест\",\"level\":\"B1\"}" >/dev/null
+VBID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" "{\"type\":\"VOCABULARY\",\"order\":0,\"content\":{\"words\":[\"smokeword-$RUN\"]}}" | json id)
+MTBID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" '{"type":"MINI_TEST","order":1}' | json id)
+EID=$(req POST /admin/content/blocks/$MTBID/exercises 201 "$ADMIN" '{"type":"MULTIPLE_CHOICE","skill":"GRAMMAR","content":{"question":"2+2?","options":["3","4"],"correctIndex":1}}' | json id)
+
+req GET /learning/today-plan 403 "$ADMIN" >/dev/null   # не ученик
+PLAN=$(req GET /learning/today-plan 200 "$PTOKEN")
+[[ $(echo "$PLAN" | json lesson.id) == "$LID" ]]   # единственный курс своей аудитории — назначился автоматически
+[[ $(echo "$PLAN" | json prioritySkills | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))') == 3 ]]
+
+L=$(req GET /learning/lessons/$LID 200 "$PTOKEN")
+[[ $(echo "$L" | json progress.status) == IN_PROGRESS ]]
+[[ $(echo "$L" | json progress.currentBlockOrder) == 0 ]]
+
+req POST /learning/lessons/$LID/blocks/$VBID/complete 201 "$PTOKEN" >/dev/null
+DUE=$(req GET /learning/vocabulary/due 200 "$PTOKEN")
+[[ $(echo "$DUE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(w=>w.word==="smokeword-'"$RUN"'")))') == true ]]
+WVID=$(echo "$DUE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).find(w=>w.word==="smokeword-'"$RUN"'").id))')
+req POST /learning/vocabulary/$WVID/review 201 "$PTOKEN" '{"quality":4}' >/dev/null
+
+GRAMMAR_BEFORE=$(req GET /users/me 200 "$PTOKEN" | json studentProfile.grammarScore)
+ANS=$(req POST /learning/lessons/$LID/exercises/$EID/answers 201 "$PTOKEN" '{"answer":1}')
+[[ $(echo "$ANS" | json isCorrect) == true ]]
+GRAMMAR_AFTER=$(req GET /users/me 200 "$PTOKEN" | json studentProfile.grammarScore)
+[[ $GRAMMAR_AFTER != "$GRAMMAR_BEFORE" ]]   # мини-тест (вес 0.1) сдвинул балл
+
+req POST /learning/lessons/$LID/blocks/$MTBID/complete 201 "$PTOKEN" >/dev/null
+[[ $(req GET /learning/lessons/$LID 200 "$PTOKEN" | json progress.status) == COMPLETED ]]
+[[ $(req GET /learning/today-plan 200 "$PTOKEN" | json lesson) == null ]]   # курс пройден полностью
+
+echo "▸ learning: чужой прогресс недоступен"
+req POST /learning/vocabulary/$WVID/review 404 "$OTOKEN" '{"quality":4}' >/dev/null
+
 rm -f "$BODY"
 echo "✔ All smoke checks passed"

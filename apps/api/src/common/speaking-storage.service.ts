@@ -3,9 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
-import { createS3Client, ensureBucketQuiet } from '../common/s3';
 import { Env } from '../config/env';
-import { PresignSpeakingDto } from './dto/placement.dto';
+import { PresignSpeakingDto } from './dto/presign-speaking.dto';
+import { createS3Client, ensureBucketQuiet } from './s3';
 
 const UPLOAD_URL_TTL_SECONDS = 5 * 60;
 

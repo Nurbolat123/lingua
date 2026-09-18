@@ -278,3 +278,77 @@ export interface PlacementPresign {
   key: string;
   expiresIn: number;
 }
+
+/** Общая форма вопроса/упражнения с проверкой на сервере — placement, банк вопросов, урок. */
+export type ExerciseItem = PlacementQuestion;
+
+// ── Обучение (Шаг 4) ─────────────────────────────────────────
+export type LessonProgressStatus = "IN_PROGRESS" | "COMPLETED";
+
+export interface TodayPlanLesson {
+  id: string;
+  title: string;
+  estimatedMinutes: number;
+  status: "NOT_STARTED" | LessonProgressStatus;
+  currentBlockOrder: number;
+}
+
+export interface DueVocabularyWord {
+  id: string;
+  word: string;
+  translationRu: string;
+  transcription?: string | null;
+  example?: string | null;
+}
+
+export interface PracticeQuestion extends ExerciseItem {
+  skill: Skill;
+  level: QuestionLevel;
+}
+
+export interface TodayPlan {
+  prioritySkills: Skill[];
+  dailyMinutes: number;
+  lesson: TodayPlanLesson | null;
+  vocabularyReview: { total: number; words: { id: string; word: string; translationRu: string }[] };
+  practiceQuestion: PracticeQuestion | null;
+}
+
+export interface SubmitAnswerResult {
+  isCorrect: boolean | null;
+  explanation: string | null;
+}
+
+export interface LessonExerciseAnswerState {
+  answer: unknown;
+  isCorrect: boolean | null;
+  hasAudio: boolean;
+}
+
+export interface LessonExerciseData extends ExerciseItem {
+  order: number;
+  answer: LessonExerciseAnswerState | null;
+}
+
+export interface LessonBlockData {
+  id: string;
+  type: LessonBlockType;
+  order: number;
+  title: string | null;
+  content: Record<string, unknown>;
+  exercises: LessonExerciseData[];
+}
+
+export interface LessonPlayerData {
+  id: string;
+  title: string;
+  description: string | null;
+  estimatedMinutes: number;
+  progress: { status: LessonProgressStatus; currentBlockOrder: number; activeSeconds: number };
+  blocks: LessonBlockData[];
+}
+
+export interface CompleteBlockResult {
+  status: LessonProgressStatus;
+  currentBlockOrder: number;
+}

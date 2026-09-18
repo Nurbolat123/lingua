@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { DashboardShell } from "@/components/DashboardShell";
-import type { MeResponse } from "@/lib/types";
+import type { MeResponse, TodayPlan } from "@/lib/types";
 import { EnglishProfileCard } from "./EnglishProfileCard";
+import { getTodayPlan } from "./learning-actions";
 import { LinkCodeWidget } from "./LinkCodeWidget";
 import { ProfileForm } from "./ProfileForm";
+import { TodayPlanCard } from "./TodayPlanCard";
 
 export default async function StudentPage() {
   const user = await apiFetch<MeResponse>("/users/me");
+  const hasProfile = !user.requiresParentConsent && user.englishProfile?.overall != null;
+  const plan: TodayPlan | null = hasProfile ? await getTodayPlan().catch(() => null) : null;
 
   return (
     <DashboardShell role="STUDENT" name={user.firstName}>
@@ -31,13 +35,13 @@ export default async function StudentPage() {
             <p className="mt-1 text-muted">{user.email}</p>
           </div>
 
-          {user.englishProfile?.overall != null ? (
-            <EnglishProfileCard profile={user.englishProfile} />
+          {plan ? (
+            <TodayPlanCard plan={plan} />
           ) : (
             <div className="rounded-2xl border border-line bg-card p-6">
               <p className="text-[17px] font-semibold">Пройдите вступительный тест</p>
               <p className="mt-2 text-muted">
-                Узнайте свой уровень по пяти навыкам английского и получите English Profile.
+                Узнайте свой уровень по пяти навыкам английского и получите план на каждый день.
               </p>
               <Link
                 href="/test"
@@ -47,6 +51,19 @@ export default async function StudentPage() {
               </Link>
             </div>
           )}
+
+          {user.englishProfile?.overall != null && <EnglishProfileCard profile={user.englishProfile} />}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-line bg-card p-6">
+              <p className="text-[15px] font-semibold">Задания от куратора</p>
+              <p className="mt-2 text-[14px] text-muted">Здесь появятся домашние задания, когда куратор их назначит.</p>
+            </div>
+            <div className="rounded-2xl border border-line bg-card p-6">
+              <p className="text-[15px] font-semibold">Уведомления</p>
+              <p className="mt-2 text-[14px] text-muted">Пока новых уведомлений нет.</p>
+            </div>
+          </div>
 
           {user.studentProfile && (
             <div className="rounded-2xl border border-line bg-card p-6">

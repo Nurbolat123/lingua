@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { PlacementQuestion } from "@/lib/types";
+import type { ExerciseItem } from "@/lib/types";
 
 type Props = {
-  question: PlacementQuestion;
+  question: ExerciseItem;
   submitting: boolean;
   onSubmit: (answer: unknown) => void;
 };
@@ -14,13 +14,13 @@ export function QuestionRenderer({ question, submitting, onSubmit }: Props) {
 
   switch (question.type) {
     case "MULTIPLE_CHOICE":
-      return <MultipleChoice content={content} submitting={submitting} onSubmit={onSubmit} />;
+      return <MultipleChoiceInput content={content} submitting={submitting} onSubmit={onSubmit} />;
     case "FILL_BLANK":
-      return <FillBlank content={content} submitting={submitting} onSubmit={onSubmit} />;
+      return <FillBlankInput content={content} submitting={submitting} onSubmit={onSubmit} />;
     case "MATCHING":
-      return <Matching content={content} submitting={submitting} onSubmit={onSubmit} />;
+      return <MatchingInput content={content} submitting={submitting} onSubmit={onSubmit} />;
     case "ORDERING":
-      return <Ordering content={content} submitting={submitting} onSubmit={onSubmit} />;
+      return <OrderingInput content={content} submitting={submitting} onSubmit={onSubmit} />;
     default:
       return <p className="text-muted">Этот тип вопроса пока не поддерживается.</p>;
   }
@@ -28,7 +28,7 @@ export function QuestionRenderer({ question, submitting, onSubmit }: Props) {
 
 type PartProps = { content: Record<string, unknown>; submitting: boolean; onSubmit: (answer: unknown) => void };
 
-function MultipleChoice({ content, submitting, onSubmit }: PartProps) {
+export function MultipleChoiceInput({ content, submitting, onSubmit }: PartProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const audioUrl = content.audioUrl as string | undefined;
   const transcript = content.transcript as string | undefined;
@@ -68,7 +68,7 @@ function MultipleChoice({ content, submitting, onSubmit }: PartProps) {
   );
 }
 
-function FillBlank({ content, submitting, onSubmit }: PartProps) {
+export function FillBlankInput({ content, submitting, onSubmit }: PartProps) {
   const [value, setValue] = useState("");
   const text = String(content.text ?? "");
   const parts = text.split("___");
@@ -102,7 +102,7 @@ function FillBlank({ content, submitting, onSubmit }: PartProps) {
   );
 }
 
-function Matching({ content, submitting, onSubmit }: PartProps) {
+export function MatchingInput({ content, submitting, onSubmit }: PartProps) {
   const left = (content.left as string[] | undefined) ?? [];
   const right = (content.right as string[] | undefined) ?? [];
   const [pairs, setPairs] = useState<Record<number, string>>({});
@@ -145,7 +145,7 @@ function Matching({ content, submitting, onSubmit }: PartProps) {
   );
 }
 
-function Ordering({ content, submitting, onSubmit }: PartProps) {
+export function OrderingInput({ content, submitting, onSubmit }: PartProps) {
   const tokens = (content.tokens as string[] | undefined) ?? [];
   const [order, setOrder] = useState<number[]>([]);
 

@@ -1,8 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { PlacementQuestion } from "@/lib/types";
-import { presignSpeaking, submitPlacementSpeaking } from "../actions";
 
 const MIME_CANDIDATES = ["audio/webm", "audio/ogg", "audio/mp4"];
 
@@ -23,13 +21,13 @@ function extensionFor(mimeType: string): string {
 }
 
 export function SpeakingRecorder({
-  attemptId,
-  question,
-  onDone,
+  prompt,
+  onPresign,
+  onSubmit,
 }: {
-  attemptId: string;
-  question: PlacementQuestion;
-  onDone: (attemptCompleted: boolean) => void;
+  prompt: string;
+  onPresign: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; key: string }>;
+  onSubmit: (audioKey: string) => Promise<void>;
 }) {
   const [status, setStatus] = useState<"idle" | "recording" | "recorded" | "uploading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -83,15 +81,14 @@ export function SpeakingRecorder({
     setError(null);
     try {
       const ext = extensionFor(mimeRef.current);
-      const { uploadUrl, key } = await presignSpeaking(attemptId, `answer.${ext}`, mimeRef.current);
+      const { uploadUrl, key } = await onPresign(`answer.${ext}`, mimeRef.current);
       const res = await fetch(uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": mimeRef.current },
         body: blobRef.current,
       });
       if (!res.ok) throw new Error("upload failed");
-      const result = await submitPlacementSpeaking(attemptId, question.id, key);
-      onDone(result.attemptCompleted);
+      await onSubmit(key);
     } catch {
       setError(
         "Не удалось отправить запись. Проверьте соединение с хранилищем файлов и попробуйте ещё раз.",
@@ -104,7 +101,7 @@ export function SpeakingRecorder({
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3 rounded-2xl bg-blue px-5 py-4 text-white">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-lime text-ink">🎤</span>
-        <span className="text-[16px] font-medium">{String(question.content.prompt ?? "")}</span>
+        <span className="text-[16px] font-medium">{prompt}</span>
       </div>
 
       {status === "idle" && (

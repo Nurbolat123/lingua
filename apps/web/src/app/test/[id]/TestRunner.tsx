@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { QuestionRenderer } from "@/components/QuestionRenderer";
+import { SpeakingRecorder } from "@/components/SpeakingRecorder";
 import type { PlacementAttemptState, PlacementNextQuestion, Skill } from "@/lib/types";
-import { getNextQuestion, submitPlacementAnswer } from "../actions";
-import { QuestionRenderer } from "./QuestionRenderer";
-import { SpeakingRecorder } from "./SpeakingRecorder";
+import { getNextQuestion, presignSpeaking, submitPlacementAnswer, submitPlacementSpeaking } from "../actions";
 
 const SKILL_LABELS: Record<Skill, string> = {
   GRAMMAR: "Грамматика",
@@ -86,9 +86,11 @@ export function TestRunner({
     }
   }
 
-  function handleSpeakingDone(attemptCompleted: boolean) {
-    if (attemptCompleted) router.refresh();
-    else loadNext();
+  async function handleSpeakingSubmit(audioKey: string) {
+    if (!next?.question) return;
+    const result = await submitPlacementSpeaking(attemptId, next.question.id, audioKey);
+    if (result.attemptCompleted) router.refresh();
+    else await loadNext();
   }
 
   const progress = next?.progress;
@@ -133,7 +135,11 @@ export function TestRunner({
           {loading && !next?.question ? (
             <p className="text-muted">Загружаем вопрос…</p>
           ) : next?.question?.type === "SPEAKING" ? (
-            <SpeakingRecorder attemptId={attemptId} question={next.question} onDone={handleSpeakingDone} />
+            <SpeakingRecorder
+              prompt={String(next.question.content.prompt ?? "")}
+              onPresign={(fileName, contentType) => presignSpeaking(attemptId, fileName, contentType)}
+              onSubmit={handleSpeakingSubmit}
+            />
           ) : next?.question ? (
             <QuestionRenderer
               key={next.question.id}

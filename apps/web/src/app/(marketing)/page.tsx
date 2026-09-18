@@ -530,11 +530,13 @@ export default function LandingPage() {
 
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          <span className={`display ${styles.logoName}`}>Lingua</span>
+          <span className={`display ${styles.logoName}`}>
+            Soyle<span style={{ color: "var(--blue)" }}>Up</span>
+          </span>
           <div className={styles.footerLinks}>
             <Link href="/privacy">Политика конфиденциальности</Link>
           </div>
-          <span>© {new Date().getFullYear()} Lingua</span>
+          <span>© {new Date().getFullYear()} SoyleUp</span>
         </div>
       </footer>
     </>

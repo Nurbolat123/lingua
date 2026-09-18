@@ -1,17 +1,31 @@
 import { apiFetch } from "@/lib/api";
 import { DashboardShell } from "@/components/DashboardShell";
-import type { PublicUser } from "@/lib/types";
+import type { ChildSummary, PublicUser } from "@/lib/types";
+import { ChildCard } from "./ChildCard";
+import { LinkChildForm } from "./LinkChildForm";
 
 export default async function ParentPage() {
-  const user = await apiFetch<PublicUser>("/users/me");
+  const [user, children] = await Promise.all([
+    apiFetch<PublicUser>("/users/me"),
+    apiFetch<ChildSummary[]>("/parents/children"),
+  ]);
 
   return (
     <DashboardShell role="PARENT" name={user.firstName}>
-      <div className="rounded-2xl border border-line bg-card p-6">
-        <p className="text-[17px] font-semibold">Здравствуйте, {user.firstName}!</p>
-        <p className="mt-2 text-muted">
-          Привязка детей по коду и управление согласиями появятся на следующем шаге ROADMAP.
-        </p>
+      <div className="flex flex-col gap-6">
+        <LinkChildForm />
+
+        {children.length === 0 ? (
+          <div className="rounded-2xl border border-line bg-card p-6 text-muted">
+            Пока нет привязанных детей. Получите код в кабинете ребёнка и введите его выше.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {children.map((child) => (
+              <ChildCard key={child.id} child={child} />
+            ))}
+          </div>
+        )}
       </div>
     </DashboardShell>
   );

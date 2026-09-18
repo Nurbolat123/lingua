@@ -31,3 +31,27 @@ export interface LinkCode {
   code: string;
   expiresAt: string;
 }
+
+export type ConsentType = "DATA_PROCESSING" | "VOICE_RECORDING" | "CAMERA" | "MICROPHONE" | "MARKETING";
+
+export interface ActiveConsent {
+  type: ConsentType;
+  version: string;
+  grantedAt: string;
+}
+
+export interface ChildSummary {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  status: "ACTIVE" | "PENDING_CONSENT" | "BLOCKED";
+  lastLoginAt: string | null;
+  linkedAt: string;
+  studentProfile: {
+    isMinor: boolean;
+    birthDate: string;
+    targetLevel: CefrTarget | null;
+    dailyMinutes: number;
+  };
+  consents: ActiveConsent[];
+}

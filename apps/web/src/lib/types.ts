@@ -42,6 +42,15 @@ export interface EnglishProfile {
   skills: Record<Skill, EnglishProfileSkill | null>;
 }
 
+export type SkillSnapshotSource = "PLACEMENT" | "CONTROL_TEST" | "LESSON_MINI_TEST";
+
+export interface SkillSnapshot {
+  skill: Skill;
+  score: number;
+  source: SkillSnapshotSource;
+  createdAt: string;
+}
+
 export interface MeResponse extends PublicUser {
   studentProfile: StudentProfile | null;
   englishProfile: EnglishProfile | null;

@@ -24,6 +24,12 @@ export class StudentsController {
   summary(@CurrentUser() user: AuthUser, @Param() params: StudentParamDto) {
     return this.family.studentSummary(user, params.id);
   }
+
+  /** История баллов по навыкам — для графика динамики. Доступ как у карточки ученика. */
+  @Get(':id/skill-history')
+  skillHistory(@CurrentUser() user: AuthUser, @Param() params: StudentParamDto) {
+    return this.family.skillHistory(user, params.id);
+  }
 }
 
 @ApiTags('parents')

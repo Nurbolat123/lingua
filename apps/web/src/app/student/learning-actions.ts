@@ -1,10 +1,14 @@
 "use server";
 
 import { apiFetch } from "@/lib/api";
-import type { DueVocabularyWord, SubmitAnswerResult, TodayPlan } from "@/lib/types";
+import type { DueVocabularyWord, SkillSnapshot, SubmitAnswerResult, TodayPlan } from "@/lib/types";
 
 export async function getTodayPlan() {
   return apiFetch<TodayPlan>("/learning/today-plan");
+}
+
+export async function getSkillHistory(studentId: string) {
+  return apiFetch<SkillSnapshot[]>(`/students/${studentId}/skill-history`);
 }
 
 export async function submitPracticeAnswer(questionId: string, answer: unknown) {

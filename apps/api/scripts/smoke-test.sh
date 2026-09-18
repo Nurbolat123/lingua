@@ -73,6 +73,8 @@ req GET /students/$MINOR_ID 200 "$PARENT" >/dev/null
 req GET /students/$ADULT_ID 404 "$PARENT" >/dev/null
 req GET /students/$ADULT_ID 404 "$MINOR" >/dev/null
 req GET /students/$MINOR_ID 200 "$MINOR" >/dev/null
+req GET /students/$MINOR_ID/skill-history 200 "$MINOR" >/dev/null   # своя история навыков доступна
+req GET /students/$ADULT_ID/skill-history 404 "$MINOR" >/dev/null   # чужая — нет
 req GET /admin/users 403 "$ADULT" >/dev/null
 
 echo "▸ curator assignment"

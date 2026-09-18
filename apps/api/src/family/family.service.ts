@@ -7,7 +7,7 @@ import { AuthUser } from '../common/auth.decorators';
 import { isUniqueViolation } from '../common/utils';
 import { ConsentsService } from '../consents/consents.service';
 import { DB, Database } from '../db/db.module';
-import { consents, ConsentType, curatorStudents, parentChildLinks, studentProfiles, users } from '../db/schema';
+import { consents, ConsentType, curatorStudents, parentChildLinks, skillSnapshots, studentProfiles, users } from '../db/schema';
 
 const LINK_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без 0/O и 1/I
 const LINK_CODE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -59,6 +59,17 @@ export class FamilyService {
     if (!student) throw new NotFoundException('Student not found');
     const { curators, ...rest } = student;
     return { ...rest, curator: curators[0] ? { ...curators[0].curator, assignedAt: curators[0].assignedAt } : null };
+  }
+
+  /** История баллов по навыкам (для графика динамики) — тот же доступ, что и к карточке ученика */
+  async skillHistory(actor: AuthUser, studentId: string) {
+    await this.access.assertCanViewStudent(actor, studentId);
+    const rows = await this.db.query.skillSnapshots.findMany({
+      where: eq(skillSnapshots.userId, studentId),
+      columns: { skill: true, score: true, source: true, createdAt: true },
+      orderBy: (t, { asc }) => [asc(t.createdAt)],
+    });
+    return rows;
   }
 
   // ── Родитель ───────────────────────────────────────────

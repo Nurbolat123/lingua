@@ -3,15 +3,17 @@ import { apiFetch } from "@/lib/api";
 import { DashboardShell } from "@/components/DashboardShell";
 import type { MeResponse, TodayPlan } from "@/lib/types";
 import { EnglishProfileCard } from "./EnglishProfileCard";
-import { getTodayPlan } from "./learning-actions";
+import { getSkillHistory, getTodayPlan } from "./learning-actions";
 import { LinkCodeWidget } from "./LinkCodeWidget";
 import { ProfileForm } from "./ProfileForm";
+import { SkillHistoryChart } from "./SkillHistoryChart";
 import { TodayPlanCard } from "./TodayPlanCard";
 
 export default async function StudentPage() {
   const user = await apiFetch<MeResponse>("/users/me");
   const hasProfile = !user.requiresParentConsent && user.englishProfile?.overall != null;
   const plan: TodayPlan | null = hasProfile ? await getTodayPlan().catch(() => null) : null;
+  const skillHistory = hasProfile ? await getSkillHistory(user.id).catch(() => null) : null;
 
   return (
     <DashboardShell role="STUDENT" name={user.firstName}>
@@ -53,6 +55,8 @@ export default async function StudentPage() {
           )}
 
           {user.englishProfile?.overall != null && <EnglishProfileCard profile={user.englishProfile} />}
+
+          {skillHistory && <SkillHistoryChart snapshots={skillHistory} />}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-line bg-card p-6">

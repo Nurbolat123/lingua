@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { AudioUploadField } from "../AudioUploadField";
 import { createWord, type ActionState } from "./actions";
 
 const initial: ActionState = { error: null };
@@ -23,6 +24,10 @@ export function VocabularyForm() {
         </select>
         <input name="definition" placeholder="Определение (en)" maxLength={1000} className="h-[42px] rounded-lg border border-line px-3 text-[14px] sm:col-span-2 lg:col-span-3" />
         <textarea name="examples" placeholder={"Примеры, по одному на строку"} rows={2} className="rounded-lg border border-line px-3 py-2 text-[14px] sm:col-span-2 lg:col-span-3" />
+        <div className="sm:col-span-2 lg:col-span-3">
+          <label className="mb-1 block text-[13px] font-semibold text-muted">Аудио произношения (необязательно)</label>
+          <AudioUploadField name="audioUrl" />
+        </div>
         <button type="submit" disabled={pending} className="h-[42px] rounded-full bg-blue px-6 text-[14px] font-semibold text-white hover:bg-blue-dark disabled:opacity-60 sm:col-span-2 lg:col-span-1">
           {pending ? "Сохраняем…" : "Добавить слово"}
         </button>

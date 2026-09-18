@@ -22,6 +22,7 @@ export async function createWord(_prev: ActionState, formData: FormData): Promis
         definition: formData.get("definition") || undefined,
         level: formData.get("level") as CefrTarget,
         transcription: formData.get("transcription") || undefined,
+        audioUrl: formData.get("audioUrl") || undefined,
         examples,
       }),
     });
@@ -42,6 +43,7 @@ export async function updateWord(id: string, _prev: ActionState, formData: FormD
         translationKk: formData.get("translationKk") || undefined,
         definition: formData.get("definition") || undefined,
         transcription: formData.get("transcription") || undefined,
+        audioUrl: formData.get("audioUrl") || undefined,
         examples,
       }),
     });

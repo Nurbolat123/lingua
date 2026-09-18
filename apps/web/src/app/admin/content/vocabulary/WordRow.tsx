@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { AudioUploadField } from "../AudioUploadField";
 import { deleteWord, updateWord, type ActionState } from "./actions";
 import type { VocabularyWord } from "@/lib/types";
 
@@ -23,6 +24,7 @@ export function WordRow({ word }: { word: VocabularyWord }) {
             <input name="transcription" defaultValue={word.transcription ?? ""} placeholder="транскрипция" className="h-[36px] w-[120px] rounded-lg border border-line px-2 text-[13px]" />
             <input name="definition" defaultValue={word.definition ?? ""} placeholder="definition" className="h-[36px] w-[200px] rounded-lg border border-line px-2 text-[13px]" />
             <input name="examples" defaultValue={word.examples.join("\n")} placeholder="примеры" className="h-[36px] w-[200px] rounded-lg border border-line px-2 text-[13px]" />
+            <AudioUploadField name="audioUrl" defaultValue={word.audioUrl} />
             <button type="submit" disabled={pending} className="h-[36px] rounded-full bg-blue px-4 text-[13px] font-semibold text-white disabled:opacity-60">
               {pending ? "…" : "Сохранить"}
             </button>

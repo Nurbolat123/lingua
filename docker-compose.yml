@@ -12,7 +12,7 @@ services:
       interval: 5s
       retries: 10
 
-  # Понадобится с этапа 3 (очереди: транскрипция, уведомления)
+  # Очередь уведомлений (BullMQ) — этап 6
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]

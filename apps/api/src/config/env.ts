@@ -35,6 +35,11 @@ export const envSchema = z.object({
 
   // Telegram-бот — необязательно; если не задано, канал telegram выключен
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+
+  // Алерты об ошибках 5xx в Telegram (для владельца/админа) — необязательно.
+  // Chat id получить так: написать боту любое сообщение, затем открыть
+  // https://api.telegram.org/bot<TOKEN>/getUpdates и взять message.chat.id
+  ALERT_TELEGRAM_CHAT_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

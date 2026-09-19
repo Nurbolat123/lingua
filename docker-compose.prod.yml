@@ -9,10 +9,21 @@
 #
 # Подробный пошаговый гайд (аренда VPS, домен, DNS, первый запуск) — см. DEPLOY.md.
 
+# Фиксированное имя проекта: от него зависят имена docker-томов (soyleup_pgdata,
+# soyleup_miniodata...) — на них ссылаются скрипты бэкапа. Не менять без правки scripts/backup.sh.
+name: soyleup
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: soyleup
       POSTGRES_PASSWORD: soyleup
@@ -28,12 +39,14 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
     volumes: [redisdata:/data]
     command: redis-server --save 60 1 --appendonly yes
 
   minio:
     image: quay.io/minio/minio:latest
     restart: unless-stopped
+    logging: *default-logging
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-soyleup}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?укажите S3_SECRET_KEY в .env}
@@ -51,6 +64,7 @@ services:
   api:
     build: ./apps/api
     restart: unless-stopped
+    logging: *default-logging
     env_file: ./apps/api/.env
     environment:
       NODE_ENV: production
@@ -64,6 +78,7 @@ services:
   web:
     build: ./apps/web
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       API_URL: http://api:3001/api/v1
@@ -73,6 +88,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *default-logging
     env_file: .env
     ports: ["80:80", "443:443"]
     volumes:

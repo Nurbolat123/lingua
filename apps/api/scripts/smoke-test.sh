@@ -333,5 +333,16 @@ LC=$(req POST /notifications/telegram/link-code 201 "$NOTIFPARENT")
 [[ $(echo "$LC" | json code | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(s.trim().length))') == 8 ]]
 req GET /notifications/telegram/status 200 "$NOTIFPARENT" >/dev/null
 
+echo "▸ кабинет родителя: уроки, отчёт, недельная сводка, ДЗ"
+LESSONS=$(req GET /students/$PID/lessons 200 "$NOTIFPARENT")
+[[ $(echo "$LESSONS" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(l=>l.lessonId==="'"$NLID"'"&&l.status==="COMPLETED")))') == true ]]
+REPORT=$(req GET /students/$PID/lessons/$NLID/report 200 "$NOTIFPARENT")
+[[ $(echo "$REPORT" | json status) == COMPLETED ]]
+SUMMARY=$(req GET /students/$PID/weekly-summary 200 "$NOTIFPARENT")
+[[ $(echo "$SUMMARY" | json lessonsCompleted) -ge 2 ]]
+req GET /students/$PID/homework 200 "$NOTIFPARENT" >/dev/null
+req GET /students/$PID/lessons 404 "$OTHERCURTOKEN" >/dev/null   # чужой куратор — не родитель и не куратор этого ученика
+req GET /students/$PID/weekly-summary 404 "$OTHERCURTOKEN" >/dev/null
+
 rm -f "$BODY"
 echo "✔ All smoke checks passed"

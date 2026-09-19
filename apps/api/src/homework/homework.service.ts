@@ -1,5 +1,5 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, desc, eq } from 'drizzle-orm';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { AccessService } from '../common/access.service';
 import { AuditService } from '../common/audit.service';
 import { AuthUser } from '../common/auth.decorators';
@@ -7,7 +7,7 @@ import { rubricToScore } from '../common/levels';
 import { PresignSpeakingDto } from '../common/dto/presign-speaking.dto';
 import { SpeakingStorageService } from '../common/speaking-storage.service';
 import { DB, Database } from '../db/db.module';
-import { homework, LessonBlock } from '../db/schema';
+import { consents, homework, LessonBlock } from '../db/schema';
 import { SkillRecalcService } from '../learning/skill-recalc.service';
 import { NotificationEventsService } from '../notifications/notification-events.service';
 import { AssignHomeworkDto, ReviewHomeworkDto, SubmitHomeworkDto } from './dto/homework.dto';
@@ -81,7 +81,10 @@ export class HomeworkService {
 
   async listForStudent(actor: AuthUser, studentId: string) {
     await this.access.assertCanViewStudent(actor, studentId);
-    return this.listMine(studentId);
+    const rows = await this.listMine(studentId);
+    // Родитель по умолчанию не слушает записи речи — ключ файла ему не нужен и не отдаётся
+    if (actor.role === 'PARENT') return rows.map(({ submissionAudioKey, ...rest }) => rest);
+    return rows;
   }
 
   async presignAudio(studentId: string, homeworkId: string, dto: PresignSpeakingDto) {
@@ -89,6 +92,7 @@ export class HomeworkService {
     if (!['ASSIGNED', 'RETURNED'].includes(row.status)) {
       throw new BadRequestException('Homework is not open for submission');
     }
+    await this.assertVoiceConsent(studentId);
     return this.speakingStorage.presign(dto, studentId);
   }
 
@@ -97,6 +101,7 @@ export class HomeworkService {
     if (!['ASSIGNED', 'RETURNED'].includes(row.status)) {
       throw new BadRequestException('Homework is not open for submission');
     }
+    if (dto.audioKey) await this.assertVoiceConsent(studentId);
 
     const [updated] = await this.db
       .update(homework)
@@ -176,6 +181,13 @@ export class HomeworkService {
       body: `«${title}» — ${statusLabel}.`,
       meta: { studentId },
     });
+  }
+
+  private async assertVoiceConsent(studentId: string) {
+    const consent = await this.db.query.consents.findFirst({
+      where: and(eq(consents.subjectId, studentId), eq(consents.type, 'VOICE_RECORDING'), isNull(consents.revokedAt)),
+    });
+    if (!consent) throw new ForbiddenException({ code: 'VOICE_RECORDING_CONSENT_REQUIRED', message: 'Voice recording consent is required' });
   }
 
   private async loadOwnHomework(studentId: string, homeworkId: string) {

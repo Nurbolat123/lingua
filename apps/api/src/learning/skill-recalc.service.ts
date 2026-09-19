@@ -43,8 +43,10 @@ export class SkillRecalcService {
     const oldScore = profile[column] as number | null;
     const newScore = recalcSkillScore(oldScore, result, weight);
 
-    await this.db.update(studentProfiles).set({ [column]: newScore }).where(eq(studentProfiles.userId, userId));
-    await this.db.insert(skillSnapshots).values({ userId, skill, score: newScore, source });
+    await this.db.transaction(async (tx) => {
+      await tx.update(studentProfiles).set({ [column]: newScore }).where(eq(studentProfiles.userId, userId));
+      await tx.insert(skillSnapshots).values({ userId, skill, score: newScore, source });
+    });
 
     if (oldScore != null && newScore <= oldScore - SCORE_DROP_THRESHOLD) {
       await this.notifyScoreDropped(userId, skill, oldScore, newScore);

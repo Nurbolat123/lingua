@@ -225,6 +225,15 @@ OTHERCUR=$(req POST /admin/users 201 "$ADMIN" "{\"email\":\"othercur$RUN@t.kz\",
 OTHERCURTOKEN=$(req POST /auth/login 200 "" "{\"email\":\"othercur$RUN@t.kz\",\"password\":\"curator-pass-123\"}" | json accessToken)
 req POST /admin/curator-assignments 201 "$ADMIN" "{\"curatorId\":\"$HWCID\",\"studentId\":\"$PID\"}" >/dev/null
 
+# Без согласия на запись голоса — аудио к ДЗ не принимается (ни presign, ни submit)
+NOCONSENT=$(register STUDENT "noconsent$RUN@t.kz" 2000-01-01)
+NOCONSENT_TOKEN=$(echo "$NOCONSENT" | json accessToken); NOCONSENT_ID=$(echo "$NOCONSENT" | json user.id)
+req POST /admin/curator-assignments 201 "$ADMIN" "{\"curatorId\":\"$HWCID\",\"studentId\":\"$NOCONSENT_ID\"}" >/dev/null
+NCHWID=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$NOCONSENT_ID\",\"title\":\"Без согласия\"}" | json id)
+req POST /learning/homework/$NCHWID/speaking-presign 403 "$NOCONSENT_TOKEN" '{"fileName":"a.webm","contentType":"audio/webm"}' >/dev/null
+req POST /learning/homework/$NCHWID/submit 403 "$NOCONSENT_TOKEN" '{"audioKey":"fake/nc.webm"}' >/dev/null
+req POST /learning/homework/$NCHWID/submit 201 "$NOCONSENT_TOKEN" '{"text":"текстом можно и без согласия"}' >/dev/null
+
 # Ручное ДЗ, сдача текстом+аудио, проверка с рубрикой → двигает Speaking
 HWID=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$PID\",\"title\":\"Расскажи о себе\",\"requiresIntegrityCheck\":true}" | json id)
 req GET /curator/review-queue 403 "$PTOKEN" >/dev/null   # не куратор

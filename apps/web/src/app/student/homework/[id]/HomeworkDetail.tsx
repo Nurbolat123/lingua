@@ -20,7 +20,7 @@ const RUBRIC_LABEL: Record<string, string> = {
   pronunciation: "Произношение",
 };
 
-export function HomeworkDetail({ homework }: { homework: Homework }) {
+export function HomeworkDetail({ homework, hasVoiceConsent }: { homework: Homework; hasVoiceConsent: boolean }) {
   const [text, setText] = useState(homework.submissionText ?? "");
   const [audioKey, setAudioKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -139,7 +139,7 @@ export function HomeworkDetail({ homework }: { homework: Homework }) {
 
             {audioKey ? (
               <p className="text-[14px] font-semibold text-blue">Запись голоса прикреплена ✓</p>
-            ) : (
+            ) : hasVoiceConsent ? (
               <SpeakingRecorder
                 prompt="Можно также ответить голосом (необязательно)"
                 onPresign={(fileName, contentType) => presignHomeworkAudio(homework.id, fileName, contentType)}
@@ -147,6 +147,11 @@ export function HomeworkDetail({ homework }: { homework: Homework }) {
                   setAudioKey(key);
                 }}
               />
+            ) : (
+              <p className="text-[14px] text-muted">
+                Чтобы отвечать голосом, нужно согласие на запись голоса — его можно дать в настройках профиля
+                (для несовершеннолетних — родитель в своём кабинете).
+              </p>
             )}
 
             {error && <p className="text-[14px] font-semibold text-error">{error}</p>}

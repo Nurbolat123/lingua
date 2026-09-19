@@ -184,6 +184,10 @@ export function RegisterForm() {
               Согласен(на) на обработку персональных данных в соответствии с{" "}
               <Link href="/privacy" target="_blank" className="text-blue">
                 политикой конфиденциальности
+              </Link>{" "}
+              и принимаю{" "}
+              <Link href="/terms" target="_blank" className="text-blue">
+                условия использования
               </Link>
             </span>
           </label>

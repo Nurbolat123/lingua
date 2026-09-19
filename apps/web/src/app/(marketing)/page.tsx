@@ -535,6 +535,7 @@ export default function LandingPage() {
           </span>
           <div className={styles.footerLinks}>
             <Link href="/privacy">Политика конфиденциальности</Link>
+            <Link href="/terms">Условия использования</Link>
           </div>
           <span>© {new Date().getFullYear()} SoyleUp</span>
         </div>

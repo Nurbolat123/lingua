@@ -2,9 +2,16 @@
 	email {$ACME_EMAIL}
 }
 
-# Сайт: собственно приложение (Next.js)
+# Сайт: собственно приложение (Next.js). /api/v1/health отдельно проксируется
+# на api — единственный публичный эндпоинт API, нужен внешнему uptime-монитору
+# (проверяет заодно и доступность базы данных, см. health.module.ts).
 {$DOMAIN} {
-	reverse_proxy web:3000
+	handle /api/v1/health {
+		reverse_proxy api:3001
+	}
+	handle {
+		reverse_proxy web:3000
+	}
 }
 
 # Публичное S3-хранилище (учебные материалы + presigned-загрузки записей речи).

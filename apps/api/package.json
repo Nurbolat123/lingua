@@ -11,6 +11,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:migrate:prod": "node dist/db/migrate.js",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:prod": "node dist/db/seed.js",
     "db:seed:demo": "tsx src/db/seed-demo.ts",
     "db:studio": "drizzle-kit studio",
     "test:smoke": "bash scripts/smoke-test.sh"

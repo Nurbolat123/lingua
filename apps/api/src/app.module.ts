@@ -1,18 +1,24 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
+import { ErrorAlertFilter } from './common/filters/error-alert.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { Env, validateEnv } from './config/env';
+import { ContentModule } from './content/content.module';
 import { CuratorModule } from './curator/curator.module';
 import { DbModule } from './db/db.module';
 import { FamilyModule } from './family/family.module';
 import { HealthModule } from './health/health.module';
+import { LearningModule } from './learning/learning.module';
+import { SkillRecalcModule } from './learning/skill-recalc.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PlacementModule } from './placement/placement.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -40,6 +46,11 @@ import { UsersModule } from './users/users.module';
     FamilyModule,
     AdminModule,
     CuratorModule,
+    ContentModule,
+    PlacementModule,
+    LearningModule,
+    NotificationsModule,
+    SkillRecalcModule,
     HealthModule,
   ],
   providers: [
@@ -47,6 +58,7 @@ import { UsersModule } from './users/users.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_FILTER, useClass: ErrorAlertFilter },
   ],
 })
 export class AppModule {}

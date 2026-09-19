@@ -21,3 +21,8 @@ export class StudentParamDto {
   @IsUUID()
   id: string;
 }
+
+export class LessonReportParamDto extends StudentParamDto {
+  @IsUUID()
+  lessonId: string;
+}

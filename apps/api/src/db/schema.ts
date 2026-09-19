@@ -20,6 +20,14 @@ export type Role = (typeof roleEnum.enumValues)[number];
 export type UserStatus = (typeof userStatusEnum.enumValues)[number];
 export type ConsentType = (typeof consentTypeEnum.enumValues)[number];
 
+// Рубрика оценки Speaking куратором (1–5 по каждому параметру) — CLAUDE.md, этап 5
+export interface SpeakingRubric {
+  vocabulary: number;
+  grammar: number;
+  fluency: number;
+  pronunciation: number;
+}
+
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
 // ── Users ────────────────────────────────────────────────
@@ -49,9 +57,17 @@ export const studentProfiles = pgTable('student_profiles', {
   targetLevel: text('target_level'),
   goal: text('goal'),
   dailyMinutes: integer('daily_minutes').notNull().default(20),
+  // Назначенный курс (этап 4) — подбирается автоматически по уровню/возрасту, куратор может сменить.
+  courseId: uuid('course_id').references(() => courses.id, { onDelete: 'set null' }),
   // Одноразовый код, который ученик передаёт родителю для привязки
   linkCode: text('link_code').unique(),
   linkCodeExpiresAt: ts('link_code_expires_at'),
+  // Текущий английский профиль (0–100), null пока навык не измерен. История — в skillSnapshots.
+  grammarScore: integer('grammar_score'),
+  vocabularyScore: integer('vocabulary_score'),
+  readingScore: integer('reading_score'),
+  listeningScore: integer('listening_score'),
+  speakingScore: integer('speaking_score'),
 });
 
 export const parentChildLinks = pgTable(
@@ -152,6 +168,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 
 export const studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
   user: one(users, { fields: [studentProfiles.userId], references: [users.id] }),
+  course: one(courses, { fields: [studentProfiles.courseId], references: [courses.id] }),
 }));
 
 export const parentChildLinksRelations = relations(parentChildLinks, ({ one }) => ({
@@ -170,3 +187,407 @@ export const consentsRelations = relations(consents, ({ one }) => ({
 }));
 
 export type User = typeof users.$inferSelect;
+
+// ── Контент (этап 2) ────────────────────────────────────────
+export const audienceEnum = pgEnum('audience', ['KIDS', 'TEENS', 'ADULTS']);
+export const skillEnum = pgEnum('skill', ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING', 'SPEAKING']);
+export const lessonBlockTypeEnum = pgEnum('lesson_block_type', [
+  'INTRO', 'VOCABULARY', 'GRAMMAR', 'READING', 'LISTENING', 'EXERCISE', 'SPEAKING', 'MINI_TEST', 'HOMEWORK',
+]);
+export const exerciseTypeEnum = pgEnum('exercise_type', [
+  'MULTIPLE_CHOICE', 'FILL_BLANK', 'MATCHING', 'ORDERING', 'FREE_RESPONSE', 'SPEAKING',
+]);
+
+export type Audience = (typeof audienceEnum.enumValues)[number];
+export type Skill = (typeof skillEnum.enumValues)[number];
+export type LessonBlockType = (typeof lessonBlockTypeEnum.enumValues)[number];
+export type ExerciseType = (typeof exerciseTypeEnum.enumValues)[number];
+
+export const courses = pgTable('courses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: text('title').notNull(),
+  description: text('description'),
+  level: text('level').notNull(), // A1..C1 — см. common/levels.ts
+  audience: audienceEnum('audience').notNull(),
+  isDemo: boolean('is_demo').notNull().default(false),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const courseModules = pgTable(
+  'modules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    order: integer('order').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('modules_course_idx').on(t.courseId, t.order)],
+);
+
+export const lessons = pgTable(
+  'lessons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    moduleId: uuid('module_id').notNull().references(() => courseModules.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    order: integer('order').notNull().default(0),
+    estimatedMinutes: integer('estimated_minutes').notNull().default(20),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('lessons_module_idx').on(t.moduleId, t.order)],
+);
+
+export const lessonBlocks = pgTable(
+  'lesson_blocks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    lessonId: uuid('lesson_id').notNull().references(() => lessons.id, { onDelete: 'cascade' }),
+    type: lessonBlockTypeEnum('type').notNull(),
+    order: integer('order').notNull().default(0),
+    title: text('title'),
+    // Отображаемое содержимое (текст, аудио, транскрипт...); формат зависит от type
+    content: jsonb('content').notNull().default({}),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('lesson_blocks_lesson_idx').on(t.lessonId, t.order)],
+);
+
+export const exercises = pgTable(
+  'exercises',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    lessonBlockId: uuid('lesson_block_id').notNull().references(() => lessonBlocks.id, { onDelete: 'cascade' }),
+    type: exerciseTypeEnum('type').notNull(),
+    order: integer('order').notNull().default(0),
+    // Вопрос, варианты, правильный ответ — вместе; при отдаче студенту ответ вырезается на сервере
+    content: jsonb('content').notNull(),
+    // Какой навык проверяет упражнение (этап 4) — используется для пересчёта баллов после мини-теста
+    // урока (вес 0.1). Необязательное: у INTRO/HOMEWORK и т.п. упражнений без проверки не задаётся.
+    skill: skillEnum('skill'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('exercises_block_idx').on(t.lessonBlockId, t.order)],
+);
+
+export const vocabularyWords = pgTable(
+  'vocabulary_words',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    word: text('word').notNull(),
+    translationRu: text('translation_ru').notNull(),
+    translationKk: text('translation_kk'),
+    definition: text('definition'),
+    level: text('level').notNull(),
+    transcription: text('transcription'),
+    audioUrl: text('audio_url'),
+    examples: jsonb('examples').notNull().default([]),
+    collocations: jsonb('collocations').notNull().default([]),
+    relatedWords: jsonb('related_words').notNull().default([]),
+    isDemo: boolean('is_demo').notNull().default(false),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('vocabulary_level_idx').on(t.level),
+    uniqueIndex('vocabulary_word_level_uq').on(t.word, t.level),
+  ],
+);
+
+export const questionBank = pgTable(
+  'question_bank',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    skill: skillEnum('skill').notNull(),
+    level: text('level').notNull(), // 9-ступенчатая шкала — см. common/levels.ts
+    difficulty: integer('difficulty').notNull().default(1), // 1–5, для полуадаптивной лестницы
+    type: exerciseTypeEnum('type').notNull(),
+    // Вопрос/аудио/варианты/правильный ответ — не отдаётся студенту до завершения попытки
+    content: jsonb('content').notNull(),
+    isDemo: boolean('is_demo').notNull().default(false),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('question_bank_skill_level_idx').on(t.skill, t.level)],
+);
+
+export const coursesRelations = relations(courses, ({ many }) => ({ modules: many(courseModules) }));
+
+export const courseModulesRelations = relations(courseModules, ({ one, many }) => ({
+  course: one(courses, { fields: [courseModules.courseId], references: [courses.id] }),
+  lessons: many(lessons),
+}));
+
+export const lessonsRelations = relations(lessons, ({ one, many }) => ({
+  module: one(courseModules, { fields: [lessons.moduleId], references: [courseModules.id] }),
+  blocks: many(lessonBlocks),
+}));
+
+export const lessonBlocksRelations = relations(lessonBlocks, ({ one, many }) => ({
+  lesson: one(lessons, { fields: [lessonBlocks.lessonId], references: [lessons.id] }),
+  exercises: many(exercises),
+}));
+
+export const exercisesRelations = relations(exercises, ({ one }) => ({
+  block: one(lessonBlocks, { fields: [exercises.lessonBlockId], references: [lessonBlocks.id] }),
+}));
+
+export type Course = typeof courses.$inferSelect;
+export type CourseModule = typeof courseModules.$inferSelect;
+export type Lesson = typeof lessons.$inferSelect;
+export type LessonBlock = typeof lessonBlocks.$inferSelect;
+export type Exercise = typeof exercises.$inferSelect;
+export type VocabularyWord = typeof vocabularyWords.$inferSelect;
+export type QuestionBankItem = typeof questionBank.$inferSelect;
+
+// ── Placement test (этап 3) ─────────────────────────────
+export const attemptStatusEnum = pgEnum('attempt_status', ['IN_PROGRESS', 'COMPLETED']);
+export const skillSnapshotSourceEnum = pgEnum('skill_snapshot_source', ['PLACEMENT', 'CONTROL_TEST', 'LESSON_MINI_TEST', 'HOMEWORK']);
+
+export const placementAttempts = pgTable(
+  'placement_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // null = анонимная попытка (тест с лендинга без регистрации); можно "забрать" при регистрации
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    status: attemptStatusEnum('status').notNull().default('IN_PROGRESS'),
+    includeSpeaking: boolean('include_speaking').notNull().default(false),
+    // Текущий навык лестницы: GRAMMAR → VOCABULARY → READING → LISTENING → (SPEAKING) → null (завершено)
+    currentSkill: skillEnum('current_skill').notNull().default('GRAMMAR'),
+    currentLevelIndex: integer('current_level_index').notNull().default(4), // индекс в QUESTION_LEVELS, старт — B1
+    // {GRAMMAR: {level, score}, VOCABULARY: {...}, ..., SPEAKING: {status: 'PENDING'|'REVIEWED', score?}}
+    results: jsonb('results'),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    completedAt: ts('completed_at'),
+  },
+  (t) => [index('placement_attempts_user_idx').on(t.userId)],
+);
+
+export const placementAnswers = pgTable(
+  'placement_answers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    attemptId: uuid('attempt_id').notNull().references(() => placementAttempts.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id').notNull().references(() => questionBank.id),
+    skill: skillEnum('skill').notNull(),
+    level: text('level').notNull(),
+    answer: jsonb('answer'), // ответ ученика; null для speaking (там audioKey)
+    audioKey: text('audio_key'), // ключ в приватном бакете speaking; presigned GET — на этапе 5 (проверка куратором)
+    isCorrect: boolean('is_correct'), // null для speaking — ожидает оценки куратором
+    answeredAt: ts('answered_at').notNull().defaultNow(),
+  },
+  (t) => [index('placement_answers_attempt_idx').on(t.attemptId)],
+);
+
+export const skillSnapshots = pgTable(
+  'skill_snapshots',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    skill: skillEnum('skill').notNull(),
+    score: integer('score').notNull(),
+    source: skillSnapshotSourceEnum('source').notNull(),
+    attemptId: uuid('attempt_id').references(() => placementAttempts.id, { onDelete: 'set null' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('skill_snapshots_user_idx').on(t.userId, t.skill, t.createdAt)],
+);
+
+export const placementAttemptsRelations = relations(placementAttempts, ({ many }) => ({
+  answers: many(placementAnswers),
+}));
+
+export const placementAnswersRelations = relations(placementAnswers, ({ one }) => ({
+  attempt: one(placementAttempts, { fields: [placementAnswers.attemptId], references: [placementAttempts.id] }),
+  question: one(questionBank, { fields: [placementAnswers.questionId], references: [questionBank.id] }),
+}));
+
+export type PlacementAttempt = typeof placementAttempts.$inferSelect;
+export type PlacementAnswer = typeof placementAnswers.$inferSelect;
+export type SkillSnapshot = typeof skillSnapshots.$inferSelect;
+export type SkillSnapshotSource = (typeof skillSnapshotSourceEnum.enumValues)[number];
+
+// ── Обучение (этап 4) ────────────────────────────────────
+export const lessonProgressStatusEnum = pgEnum('lesson_progress_status', ['IN_PROGRESS', 'COMPLETED']);
+
+export const lessonProgress = pgTable(
+  'lesson_progress',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    lessonId: uuid('lesson_id').notNull().references(() => lessons.id, { onDelete: 'cascade' }),
+    status: lessonProgressStatusEnum('status').notNull().default('IN_PROGRESS'),
+    // Порядок блока (lessonBlocks.order), на котором ученик остановился — чтобы продолжить урок с того же места.
+    currentBlockOrder: integer('current_block_order').notNull().default(0),
+    activeSeconds: integer('active_seconds').notNull().default(0),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    completedAt: ts('completed_at'),
+    // Последнее касание (heartbeat/ответ/завершение блока) — для проверки «занимался сегодня»
+    updatedAt: ts('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex('lesson_progress_user_lesson_uq').on(t.userId, t.lessonId),
+    index('lesson_progress_user_idx').on(t.userId),
+  ],
+);
+
+export const lessonExerciseAnswers = pgTable(
+  'lesson_exercise_answers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    progressId: uuid('progress_id').notNull().references(() => lessonProgress.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id').notNull().references(() => exercises.id, { onDelete: 'cascade' }),
+    answer: jsonb('answer'),
+    audioKey: text('audio_key'), // ключ в приватном бакете speaking, для SPEAKING-упражнений
+    isCorrect: boolean('is_correct'), // null — не проверяется автоматически (FREE_RESPONSE, SPEAKING)
+    answeredAt: ts('answered_at').notNull().defaultNow(),
+    // Проверка куратором (этап 5) — для SPEAKING-упражнений
+    rubric: jsonb('rubric').$type<SpeakingRubric>(),
+    reviewComment: text('review_comment'),
+    reviewedAt: ts('reviewed_at'),
+    reviewedByCuratorId: uuid('reviewed_by_curator_id').references(() => users.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    uniqueIndex('lesson_exercise_answers_progress_exercise_uq').on(t.progressId, t.exerciseId),
+    index('lesson_exercise_answers_progress_idx').on(t.progressId),
+  ],
+);
+
+// Интервальное повторение слов (SM-2). Интерфейс повторения — простой (этап 4), поля закладываются сразу.
+export const studentVocabulary = pgTable(
+  'student_vocabulary',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    wordId: uuid('word_id').notNull().references(() => vocabularyWords.id, { onDelete: 'cascade' }),
+    repetition: integer('repetition').notNull().default(0),
+    // Ease factor ×100 (SM-2 обычно 1.3–2.5+) — целое число, чтобы не заводить numeric-тип в схеме.
+    easeFactor: integer('ease_factor').notNull().default(250),
+    intervalDays: integer('interval_days').notNull().default(0),
+    dueAt: ts('due_at').notNull().defaultNow(),
+    lastReviewedAt: ts('last_reviewed_at'),
+    addedAt: ts('added_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('student_vocabulary_user_word_uq').on(t.userId, t.wordId),
+    index('student_vocabulary_due_idx').on(t.userId, t.dueAt),
+  ],
+);
+
+export const lessonProgressRelations = relations(lessonProgress, ({ one, many }) => ({
+  user: one(users, { fields: [lessonProgress.userId], references: [users.id] }),
+  lesson: one(lessons, { fields: [lessonProgress.lessonId], references: [lessons.id] }),
+  answers: many(lessonExerciseAnswers),
+}));
+
+export const lessonExerciseAnswersRelations = relations(lessonExerciseAnswers, ({ one }) => ({
+  progress: one(lessonProgress, { fields: [lessonExerciseAnswers.progressId], references: [lessonProgress.id] }),
+  exercise: one(exercises, { fields: [lessonExerciseAnswers.exerciseId], references: [exercises.id] }),
+}));
+
+export const studentVocabularyRelations = relations(studentVocabulary, ({ one }) => ({
+  user: one(users, { fields: [studentVocabulary.userId], references: [users.id] }),
+  word: one(vocabularyWords, { fields: [studentVocabulary.wordId], references: [vocabularyWords.id] }),
+}));
+
+export type LessonProgress = typeof lessonProgress.$inferSelect;
+export type LessonExerciseAnswer = typeof lessonExerciseAnswers.$inferSelect;
+export type StudentVocabulary = typeof studentVocabulary.$inferSelect;
+
+// ── Домашние задания и куратор (этап 5) ─────────────────────
+export const homeworkStatusEnum = pgEnum('homework_status', ['ASSIGNED', 'SUBMITTED', 'REVIEWED', 'RETURNED']);
+
+export interface IntegritySignals {
+  tabAwayCount: number;
+  fullscreenExitCount: number;
+  pasteDetected: boolean;
+}
+
+export const homework = pgTable(
+  'homework',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    // Куратор, назначивший ДЗ вручную; null — задание пришло автоматически из блока урока HOMEWORK
+    assignedByCuratorId: uuid('assigned_by_curator_id').references(() => users.id, { onDelete: 'set null' }),
+    lessonId: uuid('lesson_id').references(() => lessons.id, { onDelete: 'set null' }),
+    lessonBlockId: uuid('lesson_block_id').references(() => lessonBlocks.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    instructions: text('instructions'),
+    // Контроль самостоятельной работы: сигналы браузера фиксируются только для помеченных заданий
+    requiresIntegrityCheck: boolean('requires_integrity_check').notNull().default(false),
+    dueAt: ts('due_at'),
+    status: homeworkStatusEnum('status').notNull().default('ASSIGNED'),
+    submissionText: text('submission_text'),
+    submissionAudioKey: text('submission_audio_key'),
+    submittedAt: ts('submitted_at'),
+    integritySignals: jsonb('integrity_signals').$type<IntegritySignals>(),
+    rubric: jsonb('rubric').$type<SpeakingRubric>(),
+    reviewComment: text('review_comment'),
+    reviewedAt: ts('reviewed_at'),
+    reviewedByCuratorId: uuid('reviewed_by_curator_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index('homework_student_status_idx').on(t.studentId, t.status),
+  ],
+);
+
+export const homeworkRelations = relations(homework, ({ one }) => ({
+  student: one(users, { fields: [homework.studentId], references: [users.id] }),
+  lesson: one(lessons, { fields: [homework.lessonId], references: [lessons.id] }),
+}));
+
+export type Homework = typeof homework.$inferSelect;
+
+// ── Уведомления (этап 6) ────────────────────────────────────
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'LESSON_COMPLETED', 'ASSIGNMENT_CREATED', 'ASSIGNMENT_OVERDUE', 'REVIEW_CREATED', 'SCORE_DROPPED', 'LESSON_MISSED',
+]);
+export const notificationChannelEnum = pgEnum('notification_channel', ['IN_APP', 'EMAIL', 'TELEGRAM']);
+export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
+export type NotificationChannel = (typeof notificationChannelEnum.enumValues)[number];
+
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    type: notificationTypeEnum('type').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    // Ссылка на связанную сущность для перехода из уведомления (studentId, homeworkId, lessonId…)
+    meta: jsonb('meta'),
+    readAt: ts('read_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('notifications_user_idx').on(t.userId, t.createdAt)],
+);
+
+// Настройки по умолчанию — все каналы включены; строка создаётся только при отключении
+export const notificationSettings = pgTable(
+  'notification_settings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    type: notificationTypeEnum('type').notNull(),
+    inApp: boolean('in_app').notNull().default(true),
+    email: boolean('email').notNull().default(true),
+    telegram: boolean('telegram').notNull().default(true),
+  },
+  (t) => [uniqueIndex('notification_settings_user_type_uq').on(t.userId, t.type)],
+);
+
+export const telegramLinks = pgTable('telegram_links', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  chatId: text('chat_id'),
+  linkCode: text('link_code').unique(),
+  linkCodeExpiresAt: ts('link_code_expires_at'),
+  linkedAt: ts('linked_at'),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type NotificationSetting = typeof notificationSettings.$inferSelect;
+export type TelegramLink = typeof telegramLinks.$inferSelect;

@@ -42,4 +42,13 @@ export class AccessService {
   async assertCanViewStudent(actor: AuthUser, studentId: string): Promise<void> {
     if (!(await this.canViewStudent(actor, studentId))) throw new NotFoundException('Student not found');
   }
+
+  /** Активные родители ученика — получатели отчётов и уведомлений о прогрессе. */
+  async getActiveParentIds(studentId: string): Promise<string[]> {
+    const rows = await this.db.query.parentChildLinks.findMany({
+      where: and(eq(parentChildLinks.childId, studentId), eq(parentChildLinks.status, 'ACTIVE')),
+      columns: { parentId: true },
+    });
+    return rows.map((r) => r.parentId);
+  }
 }

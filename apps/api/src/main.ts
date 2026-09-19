@@ -15,7 +15,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   if (process.env.NODE_ENV !== 'production') {
-    const doc = new DocumentBuilder().setTitle('Lingua API').setVersion('0.1.0').addBearerAuth().build();
+    const doc = new DocumentBuilder().setTitle('SoyleUp API').setVersion('0.1.0').addBearerAuth().build();
     SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, doc));
   }
 

@@ -2,30 +2,45 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: lingua
-      POSTGRES_PASSWORD: lingua
-      POSTGRES_DB: lingua
+      POSTGRES_USER: soyleup
+      POSTGRES_PASSWORD: soyleup
+      POSTGRES_DB: soyleup
     ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lingua"]
+      test: ["CMD-SHELL", "pg_isready -U soyleup"]
       interval: 5s
       retries: 10
 
-  # Понадобится с этапа 3 (очереди: транскрипция, уведомления)
+  # Очередь уведомлений (BullMQ) — этап 6
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
+
+  # S3-совместимое хранилище для аудио (записи речи, домашние задания)
+  minio:
+    image: quay.io/minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: soyleup
+      MINIO_ROOT_PASSWORD: soyleup-minio
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      retries: 10
 
   api:
     build: ./apps/api
     profiles: ["full"] # локально API удобнее запускать через npm run dev
     env_file: ./apps/api/.env
     environment:
-      DATABASE_URL: postgresql://lingua:lingua@postgres:5432/lingua?schema=public
+      DATABASE_URL: postgresql://soyleup:soyleup@postgres:5432/soyleup?schema=public
     ports: ["3001:3001"]
     depends_on:
       postgres: { condition: service_healthy }
 
 volumes:
   pgdata:
+  miniodata:

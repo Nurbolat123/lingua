@@ -4,7 +4,7 @@
 set -euo pipefail
 
 API=${API:-http://localhost:3001/api/v1}
-ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@lingua.local}
+ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@soyleup.local}
 ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-ChangeMe-Admin-2026}
 RUN=$(date +%s%N)
 BODY=$(mktemp)
@@ -73,6 +73,8 @@ req GET /students/$MINOR_ID 200 "$PARENT" >/dev/null
 req GET /students/$ADULT_ID 404 "$PARENT" >/dev/null
 req GET /students/$ADULT_ID 404 "$MINOR" >/dev/null
 req GET /students/$MINOR_ID 200 "$MINOR" >/dev/null
+req GET /students/$MINOR_ID/skill-history 200 "$MINOR" >/dev/null   # своя история навыков доступна
+req GET /students/$ADULT_ID/skill-history 404 "$MINOR" >/dev/null   # чужая — нет
 req GET /admin/users 403 "$ADULT" >/dev/null
 
 echo "▸ curator assignment"
@@ -106,6 +108,250 @@ R=$(req PATCH /admin/users/$MINOR_ID/status 200 "$ADMIN" '{"status":"ACTIVE"}')
 [[ $(echo "$R" | json status) == PENDING_CONSENT ]]
 
 [[ $(req GET "/admin/users?search=minor$RUN" 200 "$ADMIN" | json total) == 1 ]]
+
+echo "▸ content: courses, lessons, blocks, exercises"
+req GET /admin/content/courses 403 "$CURATOR" >/dev/null
+CID=$(req POST /admin/content/courses 201 "$ADMIN" '{"title":"Smoke Course","level":"B1","audience":"ADULTS"}' | json id)
+req PATCH /admin/content/courses/$CID 200 "$ADMIN" '{"title":"Smoke Course v2"}' >/dev/null
+MID=$(req POST /admin/content/courses/$CID/modules 201 "$ADMIN" '{"title":"Module 1"}' | json id)
+LID=$(req POST /admin/content/modules/$MID/lessons 201 "$ADMIN" '{"title":"Lesson 1"}' | json id)
+[[ $(req GET /admin/content/courses/$CID 200 "$ADMIN" | json modules.0.lessons.0.title) == "Lesson 1" ]]
+BID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" '{"type":"EXERCISE"}' | json id)
+EID=$(req POST /admin/content/blocks/$BID/exercises 201 "$ADMIN" '{"type":"MULTIPLE_CHOICE","content":{"question":"2+2?","options":["3","4"],"correctIndex":1}}' | json id)
+[[ $(req GET /admin/content/lessons/$LID 200 "$ADMIN" | json blocks.0.exercises.0.content.correctIndex) == 1 ]]
+req GET /admin/content/lessons/$LID/preview 200 "$ADMIN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{if("correctIndex" in JSON.parse(s).blocks[0].exercises[0].content) process.exit(1)})'
+req DELETE /admin/content/exercises/$EID 200 "$ADMIN" >/dev/null
+req DELETE /admin/content/courses/$CID 200 "$ADMIN" >/dev/null
+req GET /admin/content/courses/$CID 404 "$ADMIN" >/dev/null
+
+echo "▸ content: vocabulary"
+WID=$(req POST /admin/content/vocabulary 201 "$ADMIN" '{"word":"smokeword","translationRu":"тест","level":"B1"}' | json id)
+[[ $(req GET "/admin/content/vocabulary?search=smokeword" 200 "$ADMIN" | json total) == 1 ]]
+req PATCH /admin/content/vocabulary/$WID 200 "$ADMIN" '{"definition":"updated"}' >/dev/null
+IMPORT=$(req POST /admin/content/vocabulary/import 201 "$ADMIN" '{"csv":"word,translationRu,level\nsmokeword2,тест2,B1\nbadrow,,ZZ"}')
+[[ $(echo "$IMPORT" | json imported) == 1 ]]
+[[ $(echo "$IMPORT" | json skipped | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))') == 1 ]]
+req DELETE /admin/content/vocabulary/$WID 200 "$ADMIN" >/dev/null
+
+echo "▸ content: question bank"
+QID=$(req POST /admin/content/questions 201 "$ADMIN" '{"skill":"GRAMMAR","level":"B1","type":"MULTIPLE_CHOICE","content":{"question":"q","options":["a","b"],"correctIndex":0}}' | json id)
+[[ $(req GET "/admin/content/questions?skill=GRAMMAR&level=B1" 200 "$ADMIN" | json total) -ge 1 ]]
+req DELETE /admin/content/questions/$QID 200 "$ADMIN" >/dev/null
+
+echo "▸ placement test: adaptive ladder & English Profile"
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"$SK\",\"level\":\"B1\",\"type\":\"MULTIPLE_CHOICE\",\"content\":{\"question\":\"$SK-$i-$RUN\",\"options\":[\"correct\",\"wrong\"],\"correctIndex\":0}}" >/dev/null
+  done
+done
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak $RUN\"}}" >/dev/null
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak $RUN 2\"}}" >/dev/null
+
+AID=$(req POST /placement/attempts 201 "" | json id)   # анонимно, без токена
+[[ $(req GET /placement/attempts/$AID 200 "" | json includeSpeaking) == false ]]   # анонимный тест — без Speaking
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    QID=$(req GET /placement/attempts/$AID/next-question 200 "" | json question.id)
+    req POST /placement/attempts/$AID/answers 201 "" "{\"questionId\":\"$QID\",\"answer\":0}" >/dev/null   # всегда верный ответ
+  done
+done
+R=$(req GET /placement/attempts/$AID 200 "")
+[[ $(echo "$R" | json status) == COMPLETED ]]
+[[ $(echo "$R" | json results.overall) -ge 85 ]]   # все ответы верные → лестница дошла до верхнего уровня
+req POST /placement/attempts/$AID/answers 400 "" '{"questionId":"00000000-0000-0000-0000-000000000000","answer":0}' >/dev/null   # попытка уже завершена
+
+echo "▸ placement: сохранение результата после регистрации (claim)"
+R=$(register STUDENT "place$RUN@t.kz" 2000-01-01)
+PTOKEN=$(echo "$R" | json accessToken); PID=$(echo "$R" | json user.id)
+req GET /placement/attempts/$AID 200 "$PTOKEN" >/dev/null   # анонимная попытка доступна по id
+req POST /placement/attempts/$AID/claim 201 "$PTOKEN" >/dev/null
+[[ $(req GET /users/me 200 "$PTOKEN" | json englishProfile.overall) -ge 85 ]]
+
+echo "▸ placement: Speaking доступен только с согласием и аккаунтом"
+[[ $(req POST /placement/attempts 201 "$PTOKEN" | json includeSpeaking) == false ]]   # согласия ещё нет
+req POST /users/me/consents 201 "$PTOKEN" '{"type":"VOICE_RECORDING"}' >/dev/null
+AID2=$(req POST /placement/attempts 201 "$PTOKEN" | json id)
+[[ $(req GET /placement/attempts/$AID2 200 "$PTOKEN" | json includeSpeaking) == true ]]
+req POST /placement/attempts/$AID2/speaking/presign 403 "" '{"fileName":"a.webm","contentType":"audio/webm"}' >/dev/null   # без токена нельзя
+
+echo "▸ placement: чужая привязанная попытка не видна"
+OTOKEN=$(register STUDENT "otherplace$RUN@t.kz" 2000-01-01 | json accessToken)
+req GET /placement/attempts/$AID2 404 "$OTOKEN" >/dev/null
+req GET /placement/attempts/$AID2 404 "" >/dev/null
+
+echo "▸ learning: план дня, урок, повторение слов"
+req PATCH /users/me 200 "$PTOKEN" '{"targetLevel":"B2"}' >/dev/null
+
+CID=$(req POST /admin/content/courses 201 "$ADMIN" '{"title":"Learning smoke course","level":"B1","audience":"ADULTS"}' | json id)
+MID=$(req POST /admin/content/courses/$CID/modules 201 "$ADMIN" '{"title":"M1"}' | json id)
+LID=$(req POST /admin/content/modules/$MID/lessons 201 "$ADMIN" '{"title":"L1"}' | json id)
+req POST /admin/content/vocabulary 201 "$ADMIN" "{\"word\":\"smokeword-$RUN\",\"translationRu\":\"тест\",\"level\":\"B1\"}" >/dev/null
+VBID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" "{\"type\":\"VOCABULARY\",\"order\":0,\"content\":{\"words\":[\"smokeword-$RUN\"]}}" | json id)
+MTBID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" '{"type":"MINI_TEST","order":1}' | json id)
+EID=$(req POST /admin/content/blocks/$MTBID/exercises 201 "$ADMIN" '{"type":"MULTIPLE_CHOICE","skill":"GRAMMAR","content":{"question":"2+2?","options":["3","4"],"correctIndex":1}}' | json id)
+
+req GET /learning/today-plan 403 "$ADMIN" >/dev/null   # не ученик
+PLAN=$(req GET /learning/today-plan 200 "$PTOKEN")
+[[ $(echo "$PLAN" | json lesson.id) == "$LID" ]]   # единственный курс своей аудитории — назначился автоматически
+[[ $(echo "$PLAN" | json prioritySkills | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))') == 3 ]]
+
+L=$(req GET /learning/lessons/$LID 200 "$PTOKEN")
+[[ $(echo "$L" | json progress.status) == IN_PROGRESS ]]
+[[ $(echo "$L" | json progress.currentBlockOrder) == 0 ]]
+
+req POST /learning/lessons/$LID/blocks/$VBID/complete 201 "$PTOKEN" >/dev/null
+DUE=$(req GET /learning/vocabulary/due 200 "$PTOKEN")
+[[ $(echo "$DUE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(w=>w.word==="smokeword-'"$RUN"'")))') == true ]]
+WVID=$(echo "$DUE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).find(w=>w.word==="smokeword-'"$RUN"'").id))')
+req POST /learning/vocabulary/$WVID/review 201 "$PTOKEN" '{"quality":4}' >/dev/null
+
+GRAMMAR_BEFORE=$(req GET /users/me 200 "$PTOKEN" | json studentProfile.grammarScore)
+ANS=$(req POST /learning/lessons/$LID/exercises/$EID/answers 201 "$PTOKEN" '{"answer":1}')
+[[ $(echo "$ANS" | json isCorrect) == true ]]
+GRAMMAR_AFTER=$(req GET /users/me 200 "$PTOKEN" | json studentProfile.grammarScore)
+[[ $GRAMMAR_AFTER != "$GRAMMAR_BEFORE" ]]   # мини-тест (вес 0.1) сдвинул балл
+
+req POST /learning/lessons/$LID/blocks/$MTBID/complete 201 "$PTOKEN" >/dev/null
+[[ $(req GET /learning/lessons/$LID 200 "$PTOKEN" | json progress.status) == COMPLETED ]]
+[[ $(req GET /learning/today-plan 200 "$PTOKEN" | json lesson) == null ]]   # курс пройден полностью
+
+echo "▸ learning: чужой прогресс недоступен"
+req POST /learning/vocabulary/$WVID/review 404 "$OTOKEN" '{"quality":4}' >/dev/null
+
+echo "▸ куратор: домашние задания и проверка speaking"
+HWCID=$(req POST /admin/users 201 "$ADMIN" "{\"email\":\"hwcur$RUN@t.kz\",\"password\":\"curator-pass-123\",\"firstName\":\"Homework\",\"role\":\"CURATOR\"}" | json id)
+HWCUR=$(req POST /auth/login 200 "" "{\"email\":\"hwcur$RUN@t.kz\",\"password\":\"curator-pass-123\"}" | json accessToken)
+OTHERCUR=$(req POST /admin/users 201 "$ADMIN" "{\"email\":\"othercur$RUN@t.kz\",\"password\":\"curator-pass-123\",\"firstName\":\"Other\",\"role\":\"CURATOR\"}" | json id)
+OTHERCURTOKEN=$(req POST /auth/login 200 "" "{\"email\":\"othercur$RUN@t.kz\",\"password\":\"curator-pass-123\"}" | json accessToken)
+req POST /admin/curator-assignments 201 "$ADMIN" "{\"curatorId\":\"$HWCID\",\"studentId\":\"$PID\"}" >/dev/null
+
+# Без согласия на запись голоса — аудио к ДЗ не принимается (ни presign, ни submit)
+NOCONSENT=$(register STUDENT "noconsent$RUN@t.kz" 2000-01-01)
+NOCONSENT_TOKEN=$(echo "$NOCONSENT" | json accessToken); NOCONSENT_ID=$(echo "$NOCONSENT" | json user.id)
+req POST /admin/curator-assignments 201 "$ADMIN" "{\"curatorId\":\"$HWCID\",\"studentId\":\"$NOCONSENT_ID\"}" >/dev/null
+NCHWID=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$NOCONSENT_ID\",\"title\":\"Без согласия\"}" | json id)
+req POST /learning/homework/$NCHWID/speaking-presign 403 "$NOCONSENT_TOKEN" '{"fileName":"a.webm","contentType":"audio/webm"}' >/dev/null
+req POST /learning/homework/$NCHWID/submit 403 "$NOCONSENT_TOKEN" '{"audioKey":"fake/nc.webm"}' >/dev/null
+req POST /learning/homework/$NCHWID/submit 201 "$NOCONSENT_TOKEN" '{"text":"текстом можно и без согласия"}' >/dev/null
+
+# Ручное ДЗ, сдача текстом+аудио, проверка с рубрикой → двигает Speaking
+HWID=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$PID\",\"title\":\"Расскажи о себе\",\"requiresIntegrityCheck\":true}" | json id)
+req GET /curator/review-queue 403 "$PTOKEN" >/dev/null   # не куратор
+[[ $(req GET /learning/homework 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(h=>h.id==="'"$HWID"'")))') == true ]]
+req POST /learning/homework/$HWID/submit 201 "$PTOKEN" '{"text":"Hello, my name is...","audioKey":"fake/hw.webm","integritySignals":{"tabAwayCount":1,"fullscreenExitCount":0,"pasteDetected":false}}' >/dev/null
+[[ $(req GET /curator/review-queue 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(i=>i.type==="HOMEWORK"&&i.id==="'"$HWID"'")))') == true ]]
+req GET /curator/review-queue 200 "$OTHERCURTOKEN" >/dev/null   # чужой куратор — просто пустая своя очередь, не ошибка
+req GET /curator/homework/$HWID/listen 404 "$OTHERCURTOKEN" >/dev/null   # чужой ученик — не видно
+SPEAK_BEFORE=$(req GET /curator/students/$PID 200 "$HWCUR" | json studentProfile.speakingScore)
+req GET /curator/homework/$HWID/listen 200 "$HWCUR" >/dev/null
+req POST /curator/homework/$HWID/review 201 "$HWCUR" '{"action":"APPROVE","rubric":{"vocabulary":4,"grammar":4,"fluency":4,"pronunciation":4},"comment":"Хорошо"}' >/dev/null
+SPEAK_AFTER=$(req GET /curator/students/$PID 200 "$HWCUR" | json studentProfile.speakingScore)
+[[ $SPEAK_AFTER != "$SPEAK_BEFORE" ]]
+[[ $(req GET /students/$PID/skill-history 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(x=>x.source==="HOMEWORK")))') == true ]]
+
+# Возврат на доработку → пересдача → зачёт без рубрики (без аудио)
+HWID2=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$PID\",\"title\":\"Напиши 5 предложений\"}" | json id)
+req POST /learning/homework/$HWID2/submit 201 "$PTOKEN" '{"text":"short"}' >/dev/null
+req POST /curator/homework/$HWID2/review 400 "$HWCUR" '{"action":"RETURN"}' >/dev/null   # без комментария нельзя
+req POST /curator/homework/$HWID2/review 201 "$HWCUR" '{"action":"RETURN","comment":"Добавь ещё предложений"}' >/dev/null
+[[ $(req GET /learning/homework 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).find(h=>h.id==="'"$HWID2"'").status))') == RETURNED ]]
+req POST /learning/homework/$HWID2/submit 201 "$PTOKEN" '{"text":"one two three four five sentences here"}' >/dev/null
+req POST /curator/homework/$HWID2/review 201 "$HWCUR" '{"action":"APPROVE","comment":"Отлично"}' >/dev/null   # без рубрики — без аудио и не нужна
+
+# Рубрика без аудио запрещена
+HWID3=$(req POST /curator/homework 201 "$HWCUR" "{\"studentId\":\"$PID\",\"title\":\"Тест3\"}" | json id)
+req POST /learning/homework/$HWID3/submit 201 "$PTOKEN" '{"text":"no audio"}' >/dev/null
+req POST /curator/homework/$HWID3/review 400 "$HWCUR" '{"action":"APPROVE","rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3}}' >/dev/null
+
+echo "▸ куратор: проверка speaking в уроке"
+SPBID=$(req POST /admin/content/lessons/$LID/blocks 201 "$ADMIN" '{"type":"SPEAKING","order":2}' | json id)
+SPEID=$(req POST /admin/content/blocks/$SPBID/exercises 201 "$ADMIN" '{"type":"SPEAKING","content":{"prompt":"Tell me about yourself"}}' | json id)
+req POST /learning/lessons/$LID/exercises/$SPEID/speaking 201 "$PTOKEN" '{"audioKey":"fake/lesson-speak.webm"}' >/dev/null
+ANSID=$(req GET /learning/lessons/$LID 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const l=JSON.parse(s);for(const b of l.blocks)for(const e of b.exercises)if(e.id==="'"$SPEID"'")console.log("ok")})')
+LANSID=$(req GET /curator/students/$PID/speaking-recordings 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).lesson[0].id))')
+req GET /curator/lesson-answers/$LANSID/recording 404 "$OTHERCURTOKEN" >/dev/null
+req GET /curator/lesson-answers/$LANSID/recording 200 "$HWCUR" >/dev/null
+req POST /curator/lesson-answers/$LANSID/review-speaking 201 "$HWCUR" '{"rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3},"comment":"ok"}' >/dev/null
+req POST /curator/lesson-answers/$LANSID/review-speaking 400 "$HWCUR" '{"rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3}}' >/dev/null   # уже проверено
+
+echo "▸ куратор: проверка speaking из плейсмент-теста"
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"$SK\",\"level\":\"B1\",\"type\":\"MULTIPLE_CHOICE\",\"content\":{\"question\":\"hw-$SK-$i-$RUN\",\"options\":[\"correct\",\"wrong\"],\"correctIndex\":0}}" >/dev/null
+  done
+done
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak hw $RUN\"}}" >/dev/null
+req POST /admin/content/questions 201 "$ADMIN" "{\"skill\":\"SPEAKING\",\"level\":\"B1\",\"type\":\"SPEAKING\",\"content\":{\"prompt\":\"Speak hw $RUN 2\"}}" >/dev/null
+for SK in GRAMMAR VOCABULARY READING LISTENING; do
+  for i in 1 2 3 4 5 6; do
+    QID=$(req GET /placement/attempts/$AID2/next-question 200 "$PTOKEN" | json question.id)
+    req POST /placement/attempts/$AID2/answers 201 "$PTOKEN" "{\"questionId\":\"$QID\",\"answer\":0}" >/dev/null
+  done
+done
+for i in 1 2; do
+  QID=$(req GET /placement/attempts/$AID2/next-question 200 "$PTOKEN" | json question.id)
+  req POST /placement/attempts/$AID2/speaking 201 "$PTOKEN" "{\"questionId\":\"$QID\",\"audioKey\":\"fake/placement-hw-$i.webm\"}" >/dev/null
+done
+[[ $(req GET /placement/attempts/$AID2 200 "$PTOKEN" | json results.SPEAKING.status) == PENDING ]]
+[[ $(req GET /curator/review-queue 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(i=>i.type==="PLACEMENT"&&i.id==="'"$AID2"'")))') == true ]]
+req POST /curator/placement-attempts/$AID2/review-speaking 404 "$OTHERCURTOKEN" '{"rubric":{"vocabulary":3,"grammar":3,"fluency":3,"pronunciation":3}}' >/dev/null
+req POST /curator/placement-attempts/$AID2/review-speaking 201 "$HWCUR" '{"rubric":{"vocabulary":5,"grammar":5,"fluency":5,"pronunciation":5},"comment":"Отлично"}' >/dev/null
+[[ $(req GET /curator/students/$PID 200 "$HWCUR" | json studentProfile.speakingScore) == 100 ]]
+req POST /curator/placement-attempts/$AID2/review-speaking 400 "$HWCUR" '{"rubric":{"vocabulary":1,"grammar":1,"fluency":1,"pronunciation":1}}' >/dev/null   # уже проверено
+
+echo "▸ куратор: список учеников (фильтры) и план"
+[[ $(req GET "/curator/students?hasPending=true" 200 "$HWCUR" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(x=>x.id==="'"$PID"'")))') == true ]]
+req PATCH /curator/students/$PID/plan 200 "$HWCUR" '{"targetLevel":"C1"}' >/dev/null
+[[ $(req GET /users/me 200 "$PTOKEN" | json studentProfile.targetLevel) == C1 ]]
+req PATCH /curator/students/$PID/plan 404 "$OTHERCURTOKEN" '{"targetLevel":"A1"}' >/dev/null
+req GET /curator/students/$PID 404 "$OTHERCURTOKEN" >/dev/null
+req GET /curator/students/$PID/mistakes 404 "$OTHERCURTOKEN" >/dev/null
+
+echo "▸ уведомления: очередь, настройки, Telegram-привязка"
+NOTIFPARENT=$(register PARENT "notifparent$RUN@t.kz" | json accessToken)
+NCODE=$(req POST /students/me/link-code 201 "$PTOKEN" | json code)
+req POST /parents/children/link 201 "$NOTIFPARENT" "{\"code\":\"$NCODE\"}" >/dev/null
+
+NCID=$(req POST /admin/content/courses 201 "$ADMIN" '{"title":"Notif smoke course","level":"B1","audience":"ADULTS"}' | json id)
+NMID=$(req POST /admin/content/courses/$NCID/modules 201 "$ADMIN" '{"title":"M1"}' | json id)
+NLID=$(req POST /admin/content/modules/$NMID/lessons 201 "$ADMIN" '{"title":"Notif lesson"}' | json id)
+NBID=$(req POST /admin/content/lessons/$NLID/blocks 201 "$ADMIN" '{"type":"INTRO","order":0}' | json id)
+req POST /learning/lessons/$NLID/blocks/$NBID/complete 201 "$PTOKEN" >/dev/null
+sleep 1   # доставка через очередь BullMQ асинхронна
+
+LIST=$(req GET /notifications 200 "$NOTIFPARENT")
+[[ $(echo "$LIST" | json unread) == 1 ]]
+[[ $(echo "$LIST" | json 'items.0.type') == LESSON_COMPLETED ]]
+NID=$(echo "$LIST" | json 'items.0.id')
+req GET /notifications 200 "$PTOKEN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{if(JSON.parse(s).items.some(i=>i.type==="LESSON_COMPLETED"))throw new Error("student should not receive LESSON_COMPLETED (parent-only)")})'
+
+req POST /notifications/$NID/read 201 "$NOTIFPARENT" >/dev/null
+[[ $(req GET /notifications 200 "$NOTIFPARENT" | json unread) == 0 ]]
+
+SETTINGS=$(req GET /notifications/settings 200 "$NOTIFPARENT")
+[[ $(echo "$SETTINGS" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))') == 6 ]]
+req PATCH /notifications/settings/LESSON_COMPLETED 200 "$NOTIFPARENT" '{"inApp":false,"email":false,"telegram":false}' >/dev/null
+
+NLID2=$(req POST /admin/content/modules/$NMID/lessons 201 "$ADMIN" '{"title":"Notif lesson 2","order":1}' | json id)
+NBID2=$(req POST /admin/content/lessons/$NLID2/blocks 201 "$ADMIN" '{"type":"INTRO","order":0}' | json id)
+req POST /learning/lessons/$NLID2/blocks/$NBID2/complete 201 "$PTOKEN" >/dev/null
+sleep 1
+[[ $(req GET /notifications 200 "$NOTIFPARENT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).items.length))') == 1 ]]   # отключённый тип не пришёл повторно
+
+LC=$(req POST /notifications/telegram/link-code 201 "$NOTIFPARENT")
+[[ $(echo "$LC" | json code | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(s.trim().length))') == 8 ]]
+req GET /notifications/telegram/status 200 "$NOTIFPARENT" >/dev/null
+
+echo "▸ кабинет родителя: уроки, отчёт, недельная сводка, ДЗ"
+LESSONS=$(req GET /students/$PID/lessons 200 "$NOTIFPARENT")
+[[ $(echo "$LESSONS" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).some(l=>l.lessonId==="'"$NLID"'"&&l.status==="COMPLETED")))') == true ]]
+REPORT=$(req GET /students/$PID/lessons/$NLID/report 200 "$NOTIFPARENT")
+[[ $(echo "$REPORT" | json status) == COMPLETED ]]
+SUMMARY=$(req GET /students/$PID/weekly-summary 200 "$NOTIFPARENT")
+[[ $(echo "$SUMMARY" | json lessonsCompleted) -ge 2 ]]
+req GET /students/$PID/homework 200 "$NOTIFPARENT" >/dev/null
+req GET /students/$PID/lessons 404 "$OTHERCURTOKEN" >/dev/null   # чужой куратор — не родитель и не куратор этого ученика
+req GET /students/$PID/weekly-summary 404 "$OTHERCURTOKEN" >/dev/null
 
 rm -f "$BODY"
 echo "✔ All smoke checks passed"

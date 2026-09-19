@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import { AuthUser } from '../common/auth.decorators';
+import { buildEnglishProfile } from '../common/levels';
 import { definedOnly } from '../common/utils';
 import { ConsentsService } from '../consents/consents.service';
 import { DB, Database } from '../db/db.module';
@@ -19,15 +20,30 @@ export class UsersService {
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, userId),
       with: {
-        studentProfile: { columns: { birthDate: true, isMinor: true, targetLevel: true, goal: true, dailyMinutes: true } },
+        studentProfile: {
+          columns: {
+            birthDate: true, isMinor: true, targetLevel: true, goal: true, dailyMinutes: true,
+            grammarScore: true, vocabularyScore: true, readingScore: true, listeningScore: true, speakingScore: true,
+          },
+        },
         consents: { where: isNull(consents.revokedAt), columns: { type: true, version: true, grantedAt: true } },
       },
     });
     if (!user) throw new NotFoundException();
     const { studentProfile, consents: activeConsents, ...rest } = user;
+    const englishProfile = studentProfile
+      ? buildEnglishProfile({
+          GRAMMAR: studentProfile.grammarScore,
+          VOCABULARY: studentProfile.vocabularyScore,
+          READING: studentProfile.readingScore,
+          LISTENING: studentProfile.listeningScore,
+          SPEAKING: studentProfile.speakingScore,
+        })
+      : null;
     return {
       ...toPublicUser(rest as typeof user),
       studentProfile: studentProfile ?? null,
+      englishProfile,
       activeConsents,
       requiresParentConsent: user.status === 'PENDING_CONSENT',
     };

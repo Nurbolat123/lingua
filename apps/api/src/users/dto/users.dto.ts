@@ -1,6 +1,5 @@
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-
-export const CEFR_TARGETS = ['A1', 'A2', 'B1', 'B2', 'C1'] as const;
+import { COURSE_LEVELS as CEFR_TARGETS } from '../../common/levels';
 
 export class UpdateMeDto {
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(80)

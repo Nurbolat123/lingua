@@ -1,0 +1,14 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Сайт: собственно приложение (Next.js)
+{$DOMAIN} {
+	reverse_proxy web:3000
+}
+
+# Публичное S3-хранилище (учебные материалы + presigned-загрузки записей речи).
+# HTTPS обязателен: presigned URL для приватного бакета "speaking" не должен идти по http.
+storage.{$DOMAIN} {
+	reverse_proxy minio:9000
+}

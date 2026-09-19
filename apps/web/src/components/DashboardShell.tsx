@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoutButton } from "./LogoutButton";
+import { NotificationBell } from "./NotificationBell";
 
 const ROLE_LABEL: Record<string, string> = {
   STUDENT: "Кабинет ученика",
@@ -28,8 +29,9 @@ export function DashboardShell({
         <Link href="/" className="display text-[18px] font-bold text-ink no-underline">
           Soyle<span className="text-blue">Up</span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="hidden text-sm text-muted sm:inline">{name}</span>
+          <NotificationBell />
           <LogoutButton />
         </div>
       </header>

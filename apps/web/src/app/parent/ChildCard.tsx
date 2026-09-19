@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTransition } from "react";
 import { setConsent, unlinkChild } from "./actions";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -48,6 +49,13 @@ export function ChildCard({ child }: { child: ChildSummary }) {
         </div>
         <StatusBadge status={child.status} />
       </div>
+
+      <Link
+        href={`/parent/children/${child.id}`}
+        className="mt-4 inline-flex h-[42px] items-center rounded-2xl border border-ink px-5 text-[14px] font-semibold text-ink no-underline hover:bg-ink hover:text-paper"
+      >
+        Прогресс и отчёты →
+      </Link>
 
       {child.studentProfile.isMinor ? (
         <div className="mt-5 flex flex-col gap-2">

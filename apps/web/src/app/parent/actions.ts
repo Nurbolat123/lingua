@@ -2,7 +2,33 @@
 
 import { revalidatePath } from "next/cache";
 import { apiFetch, ApiError } from "@/lib/api";
-import type { ConsentType } from "@/lib/types";
+import type {
+  ConsentType, Homework, LessonReport, SkillSnapshot, StudentLessonProgressItem, StudentSummary, WeeklySummary,
+} from "@/lib/types";
+
+export async function getChildSummary(childId: string) {
+  return apiFetch<StudentSummary>(`/students/${childId}`);
+}
+
+export async function getChildSkillHistory(childId: string) {
+  return apiFetch<SkillSnapshot[]>(`/students/${childId}/skill-history`);
+}
+
+export async function getChildWeeklySummary(childId: string) {
+  return apiFetch<WeeklySummary>(`/students/${childId}/weekly-summary`);
+}
+
+export async function getChildLessons(childId: string) {
+  return apiFetch<StudentLessonProgressItem[]>(`/students/${childId}/lessons`);
+}
+
+export async function getChildLessonReport(childId: string, lessonId: string) {
+  return apiFetch<LessonReport>(`/students/${childId}/lessons/${lessonId}/report`);
+}
+
+export async function getChildHomework(childId: string) {
+  return apiFetch<Homework[]>(`/students/${childId}/homework`);
+}
 
 export interface LinkChildState {
   error: string | null;

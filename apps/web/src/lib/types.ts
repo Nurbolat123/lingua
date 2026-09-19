@@ -452,3 +452,72 @@ export interface PlacementSpeakingRecording {
   prompt: string | null;
   url: string;
 }
+
+// ── Уведомления и отчёты (Шаг 6) ────────────────────────
+export type NotificationType =
+  | "LESSON_COMPLETED" | "ASSIGNMENT_CREATED" | "ASSIGNMENT_OVERDUE" | "REVIEW_CREATED" | "SCORE_DROPPED" | "LESSON_MISSED";
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  meta: Record<string, unknown> | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  items: AppNotification[];
+  unread: number;
+}
+
+export interface NotificationSettingRow {
+  type: NotificationType;
+  inApp: boolean;
+  email: boolean;
+  telegram: boolean;
+}
+
+export interface TelegramStatus {
+  linked: boolean;
+  botAvailable: boolean;
+}
+
+export interface TelegramLinkCode {
+  code: string;
+  expiresAt: string;
+  botUsername: string | null;
+  deepLink: string | null;
+}
+
+export interface StudentLessonProgressItem {
+  id: string;
+  lessonId: string;
+  lessonTitle: string;
+  status: LessonProgressStatus;
+  activeSeconds: number;
+  startedAt: string;
+  completedAt: string | null;
+  updatedAt: string;
+}
+
+export interface LessonReport {
+  lessonId: string;
+  lessonTitle: string;
+  status: LessonProgressStatus;
+  activeSeconds: number;
+  completedAt: string | null;
+  skills: { skill: Skill; correct: number; total: number }[];
+  homework: { id: string; title: string; status: HomeworkStatus; reviewComment: string | null } | null;
+}
+
+export interface WeeklySummary {
+  lessonsCompleted: number;
+  minutesStudied: number;
+  homeworkAssigned: number;
+  homeworkDone: number;
+  skillDeltas: { skill: Skill; current: number | null; delta: number | null }[];
+  englishProfile: EnglishProfile | null;
+}

@@ -16,6 +16,9 @@ const ZONE_ROLE: Record<string, Role> = {
   "/admin": "ADMIN",
 };
 
+// Доступно любой авторизованной роли (не привязано к одному кабинету)
+const AUTH_ONLY_PREFIXES = ["/notifications"];
+
 const COOKIE_BASE = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -61,6 +64,7 @@ export async function proxy(request: NextRequest) {
   const zonePrefix = Object.keys(ZONE_ROLE).find(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
+  const isAuthOnly = AUTH_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
   let response: NextResponse;
 
@@ -76,6 +80,8 @@ export async function proxy(request: NextRequest) {
     } else {
       response = NextResponse.next();
     }
+  } else if (isAuthOnly) {
+    response = payload ? NextResponse.next() : NextResponse.redirect(new URL("/login", request.url));
   } else {
     response = NextResponse.next();
   }
@@ -89,7 +95,7 @@ export async function proxy(request: NextRequest) {
       ...COOKIE_BASE,
       maxAge: REFRESH_COOKIE_MAX_AGE,
     });
-  } else if (!payload && (zonePrefix || request.cookies.get(REFRESH_TOKEN_COOKIE))) {
+  } else if (!payload && (zonePrefix || isAuthOnly || request.cookies.get(REFRESH_TOKEN_COOKIE))) {
     // Просроченные/недействительные токены не оставляем в браузере.
     response.cookies.delete(ACCESS_TOKEN_COOKIE);
     response.cookies.delete(REFRESH_TOKEN_COOKIE);
@@ -99,5 +105,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/student/:path*", "/parent/:path*", "/curator/:path*", "/admin/:path*", "/login", "/register"],
+  matcher: ["/student/:path*", "/parent/:path*", "/curator/:path*", "/admin/:path*", "/notifications/:path*", "/login", "/register"],
 };
